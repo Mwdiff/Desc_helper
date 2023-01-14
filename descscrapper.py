@@ -1,4 +1,3 @@
-import pprint
 from string import Template
 from time import sleep
 
@@ -30,6 +29,10 @@ def GetProductData(url: str, s: requests.Session = requests.Session()) -> dict:
     producent = souped_page.find("a", class_="firmlogo").contents[0].get("title")
     product_data["producent"] = producent
 
+    sku = souped_page.find("div", itemprop="productID").text
+    product_data["sku"] = sku
+
+
     titles = souped_page.find(
         "div", id="component_projector_longdescription_not"
     ).find_all("h3")
@@ -41,9 +44,13 @@ def GetProductData(url: str, s: requests.Session = requests.Session()) -> dict:
 
     for element in desc:
         try:
-            product_data["img"].append(secret["site"] + element.contents[0].get("src"))
+            imgurl = element.contents[0].get("src")
+            if not "http" in imgurl:
+                imgurl = secret["site"] + element.contents[0].get("src")
+            product_data["img"].append(imgurl)
         except:
-            product_data["opis"].append(element.stripped_strings)
+            if not element.text.isspace():
+                product_data["opis"].append(element.text)
 
     return product_data
 
@@ -99,15 +106,17 @@ def WriteToSheet(data: dict, file: str = "PlikDostawy") -> None:
     ws = wb[wb.sheetnames[0]]
     row = ws.max_row + 1
 
-    ws.cell(row, 1).value = CompileDescription(data)
+    ws.cell(row, 1).value = data["sku"]
+    ws.cell(row, 2).value = CompileDescription(data)
 
     for i in range(len(data["img"])):
-        ws.cell(row, 2 + i).value = data["img"][i]
+        ws.cell(row, 3 + i).value = data["img"][i]
 
     wb.save(f"./{file}.xlsx")
 
 
 URL = input("Podaj adres www dostawy: ")
+plik = input("Podaj nazwę pliku: ")
 
 with requests.Session() as s:
     p = s.post(secret["LOGIN_URL"], data=secret["payload"])
@@ -116,5 +125,5 @@ with requests.Session() as s:
 
     for product in products:
         data = GetProductData(product, s)
-        WriteToSheet(data, "Dostawa_1")
+        WriteToSheet(data, plik)
         sleep(0.5)
