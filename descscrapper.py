@@ -43,38 +43,54 @@ def GetProductData(page: "Response") -> dict:
     srp_price = souped_page.find("span", id="srp_val")
     product_data["srp"] = srp_price.get_text().strip(" PLN")
 
+    description = souped_page.find("div", id="component_projector_longdescription_not")
+
     # Tworzy listę nagłówków z opisu
     product_data["titles"] = [
-        tit.get_text(strip=True)
-        for tit in souped_page.find(
-            "div", id="component_projector_longdescription_not"
-        ).find_all("h3")
+        tit.get_text(strip=True) for tit in description.find_all("h3")
     ]
 
     # Tworzy listę akapitów z opisu
     product_data["opis"] = [
         d.get_text(strip=True)
-        for d in souped_page.find(
-            "div", id="component_projector_longdescription_not"
-        ).find_all("p")
+        for d in description.find_all("p")
         if d.get_text(strip=True)
     ]
 
     # Tworzy listę adresów zdjęć z opisu
-    for img in souped_page.find(
-        "div", id="component_projector_longdescription_not"
-    ).find_all("img"):
+    for img in description.find_all("img"):
         imgurl = img.get("src")
         if not "http" in imgurl:
             imgurl = secret["site"] + imgurl
         product_data["img"].append(imgurl)
 
-    # todo: specyfikacja i "w zestawie"
+    # Specyfikacja
+    specification = description.find("tbody")
+    try:
+        spec = str(specification)
+        reps = {"tbody": "ul", "tr>": "li>", "th>": "b>", "<td>": "", "</td>": ""}
+        for o, n in reps.items():
+            spec = spec.replace(o, n)
+
+        product_data["spec"] = "<h2>Specyfikacja:</h2>\n" + spec
+    except:
+        product_data["spec"] = ""
+
+    # W zestawie
+    content = description.find("ul")
+    if content != None:
+        for sibling in content.previous_siblings:
+            if sibling.name == "h3":
+                list = "<h2>" + sibling.string + ":</h2>\n"
+                break
+
+        product_data["set"] = list + str(content)
 
     return product_data
 
 
 def CompileDescription(data: dict) -> str:
+    # szablon sekcji opisu
     descpart = []
     descpart.append(
         Template(
@@ -97,9 +113,23 @@ def CompileDescription(data: dict) -> str:
     descpart.append('<section class="section">\n')
     descpart.append("</section>\n")
 
-    desc = ""
+    # pierwsza sekcja specyfikacja + zawartość
+    firstsection = data["spec"]
+    if "set" in data:
+        firstsection += "\n" + data["set"]
 
-    for i, (d, t, imgu) in enumerate(
+    desc = """<section class="section">
+                    <div class="item item-6">
+                        <section class="text-item">
+                            {}
+                        </section>
+                    </div>
+                </section>\n""".format(
+        firstsection
+    )
+
+    # kolejne sekcje nagłówek/opis + zdjęcie naprzemiennie
+    for i, (imgu, t, d) in enumerate(
         zip_longest(data["img"], data["titles"], data["opis"], fillvalue="None")
     ):
         desc = (
@@ -137,17 +167,25 @@ def WriteToSheet(data: dict, file: str = "PlikDostawy") -> None:
     wb.save(f"./output/{file}.xlsx")
 
 
+def ScrapeDelivery(
+    URL: str, plik: str, s: requests.Session = requests.Session()
+) -> None:
+    p = s.post(secret["LOGIN_URL"], data=secret["payload"])
+
+    products = ExtractProductList(GetWebpage(URL, s))
+
+    for product in products:
+        data = GetProductData(GetWebpage(product, s))
+        WriteToSheet(data, plik)
+        sleep(0.2)
+
+
 if __name__ == "__main__":
 
     URL = input("Podaj adres www dostawy: ")
     plik = input("Podaj nazwę pliku: ")
 
-    with requests.Session() as s:
-        p = s.post(secret["LOGIN_URL"], data=secret["payload"])
+    with requests.Session() as session:
+        p = session.post(secret["LOGIN_URL"], data=secret["payload"])
 
-        products = ExtractProductList(GetWebpage(URL, s))
-
-        for product in products:
-            data = GetProductData(GetWebpage(product, s))
-            WriteToSheet(data, plik)
-            sleep(0.2)
+        ScrapeDelivery(URL, plik, session)
