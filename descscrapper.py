@@ -1,3 +1,5 @@
+from itertools import zip_longest
+from pathlib import Path
 from string import Template
 from time import sleep
 
@@ -7,123 +9,212 @@ from openpyxl import Workbook, load_workbook
 
 from secret import secret
 
-# auth https://docs.python-requests.org/en/latest/user/authentication/
-# https://realpython.com/beautiful-soup-web-scraper-python/
-# https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 
-
-def ExtractProductList(url: str, s: requests.Session = requests.Session()) -> list:
+def GetWebpage(url: str, s: requests.Session = requests.Session()) -> "Response":
     page = s.get(url)
+    return page
+
+
+def ExtractProductList(page: "Response") -> list:
     souped_page = BeautifulSoup(page.content, "lxml")
     products = souped_page.find_all("a", class_="product-name")
     product_list = [secret["site"] + product.get("href") for product in products]
     return product_list
 
 
-def GetProductData(url: str, s: requests.Session = requests.Session()) -> dict:
-    page = s.get(url)
+def GetProductData(page: "Response") -> dict:
     souped_page = BeautifulSoup(page.content, "lxml")
 
     product_data = {"opis": [], "img": [], "titles": []}
 
+    # Znajduje producenta produktu
     producent = souped_page.find("a", class_="firmlogo").contents[0].get("title")
     product_data["producent"] = producent
 
+    # Znajduje SKU produktu
     sku = souped_page.find("div", itemprop="productID").text
     product_data["sku"] = sku
 
+    # Cena zakupu netto
+    net_price = souped_page.find("span", id="price_net_val")
+    product_data["net"] = net_price.get_text().strip(" PLN").replace(" ", "")
 
-    titles = souped_page.find(
-        "div", id="component_projector_longdescription_not"
-    ).find_all("h3")
-    product_data["titles"] = [tit.text for tit in titles]
+    # Cena SRP
+    srp_price = souped_page.find("span", id="srp_val")
+    product_data["srp"] = srp_price.get_text().strip(" PLN").replace(" ", "")
 
-    desc = souped_page.find(
-        "div", id="component_projector_longdescription_not"
-    ).find_all("p")
+    description = souped_page.find("div", id="component_projector_longdescription_not")
 
-    for element in desc:
-        try:
-            imgurl = element.contents[0].get("src")
-            if not "http" in imgurl:
-                imgurl = secret["site"] + element.contents[0].get("src")
-            product_data["img"].append(imgurl)
-        except:
-            if not element.text.isspace():
-                product_data["opis"].append(element.text)
+    # Tworzy listę nagłówków z opisu
+    try:
+        product_data["titles"] = [
+            tit.get_text(strip=True)
+            for tit in description.find_all("h3")
+        ]
+    except:
+        return product_data
 
+    # Tworzy listę akapitów z opisu
+    product_data["opis"] = [
+        d.get_text(strip=True)
+        for d in description.find_all("p")
+        if d.get_text(strip=True)
+    ]
+
+    # Tworzy listę adresów zdjęć z opisu
+    for img in description.find_all("img"):
+        imgurl = img.get("src")
+        if not "http" in imgurl:
+            imgurl = secret["site"] + imgurl
+        product_data["img"].append(imgurl)
+
+    # Specyfikacja
+    specification = description.find("tbody")
+    try:
+        spec = str(specification)
+        reps = {"tbody": "ul", "tr>": "li>", "th>": "b>", "<br>": " ", "<td>": "", "</td>": ""}
+        for o, n in reps.items():
+            spec = spec.replace(o, n)
+
+        product_data["spec"] = "<h2>Specyfikacja:</h2>\n" + spec
+    except:
+        product_data["spec"] = ""
+
+    # W zestawie
+    content = description.find("ul")
+    if content != None:
+        for sibling in content.previous_siblings:
+            if sibling.name == "h3":
+                list = "<h2>" + sibling.string + ":</h2>\n"
+                break
+
+        product_data["set"] = list + str(content)
+        
     return product_data
 
 
-# todo: specyfikacja i "w zestawie"
-
-
 def CompileDescription(data: dict) -> str:
+    # szablon sekcji opisu
     descpart = []
-    descpart.append(
-        Template(
-            """<div class="item item-6">
-        <section class="image-item">
-            <img src="$img" />
-        </section>
-    </div>\n"""
-        )
+    
+    Style_Sidetoside_template_1 = Template(
+        """<div class="item item-6">
+                <section class="image-item">
+                    <img src="$img" />
+                </section>
+            </div>\n"""
     )
-    descpart.append(
-        Template(
-            """<div class="item item-6">
-        <section class="text-item">
-            <h1>$title</h1><p>$section</p>
-        </section>
-    </div>\n"""
-        )
+    
+    
+    Style_Sidetoside_template_2 = Template(
+        """<div class="item item-6">
+                <section class="text-item">
+                    <h1>$title</h1><p>$section</p>
+                </section>
+            </div>\n"""
     )
-    descpart.append('<section class="section">\n')
-    descpart.append("</section>\n")
-    desc = ""
 
-    for i in range(min(len(data["opis"]), len(data["img"]))):
+    Style_Oneline_template_1 = Template(
+        """<section class="section">
+                <div class="item item-12">
+                    <section class="text-item">
+                        <h2>$title</h2><p>$section</p>
+                    </section>
+                </div>
+            </section>\n"""
+    )
+    
+
+    Style_Oneline_template_2 = Template(
+        """<section class="section">
+                <div class="item item-12">
+                    <section class="image-item">
+                        <img src="$img" />
+                    </section>
+                </div>
+            </section>\n"""
+    )
+    
+    descpart.append(Style_Oneline_template_1)
+    descpart.append(Style_Oneline_template_2)
+        
+    #descpart.append('<section class="section">\n')
+    #descpart.append("</section>\n")
+
+    # pierwsza sekcja specyfikacja + zawartość
+    if "spec" not in data:
+        return ""
+    
+    firstsection = data.setdefault("spec", "")
+    
+    if "set" in data:
+        firstsection += "\n" + data["set"]
+
+    if firstsection != "":
+        desc = """<section class="section">
+                        <div class="item item-12">
+                            <section class="text-item">
+                                {}
+                            </section>
+                        </div>
+                    </section>\n""".format(
+            firstsection
+        )
+
+    # kolejne sekcje nagłówek/opis + zdjęcie naprzemiennie
+    for t, (i, d) in zip(data["titles"], zip_longest(data["img"], data["opis"], fillvalue="None")):
         desc = (
             desc
-            + descpart[2]
-            + descpart[i % 2].substitute(
-                img=data["img"][i], title=data["titles"][i], section=data["opis"][i]
-            )
-            + descpart[(i + 1) % 2].substitute(
-                img=data["img"][i], title=data["titles"][i], section=data["opis"][i]
-            )
-            + descpart[3]
+            #+ descpart[2]
+            + descpart[0].substitute(img=i, title=t, section=d)
+            + descpart[1].substitute(img=i, title=t, section=d)
+            #+ descpart[3]
         )
     return desc
 
 
 def WriteToSheet(data: dict, file: str = "PlikDostawy") -> None:
     try:
-        wb = load_workbook(f"./{file}.xlsx")
+        wb = load_workbook(f"./output/{file}.xlsx")
     except:
         wb = Workbook()
+        ws = wb.create_sheet(file, 0)
+        header = ("sku", "Zakup netto", "SRP", "Opis", "Zdjęcia ->")
+        for i, tag in enumerate(header, start=1):
+            ws.cell(1, i).value = tag
+        Path("./output/").mkdir(exist_ok=True)
 
-    ws = wb[wb.sheetnames[0]]
+    ws = wb.active
     row = ws.max_row + 1
 
     ws.cell(row, 1).value = data["sku"]
-    ws.cell(row, 2).value = CompileDescription(data)
+    ws.cell(row, 2).value = data["net"]
+    ws.cell(row, 3).value = data["srp"]
+    ws.cell(row, 4).value = CompileDescription(data)
 
-    for i in range(len(data["img"])):
-        ws.cell(row, 3 + i).value = data["img"][i]
+    for i, img in enumerate(data["img"], start=5):
+        ws.cell(row, i).value = img
 
-    wb.save(f"./{file}.xlsx")
+    wb.save(f"./output/{file}.xlsx")
 
-
-URL = input("Podaj adres www dostawy: ")
-plik = input("Podaj nazwę pliku: ")
-
-with requests.Session() as s:
+def ScrapeDelivery(
+    URL: str, plik: str, s: requests.Session = requests.Session()
+) -> None:
     p = s.post(secret["LOGIN_URL"], data=secret["payload"])
 
-    products = ExtractProductList(URL, s)
+    products = ExtractProductList(GetWebpage(URL, s))
 
     for product in products:
-        data = GetProductData(product, s)
+        data = GetProductData(GetWebpage(product, s))
         WriteToSheet(data, plik)
-        sleep(0.5)
+        sleep(0.2)
+
+if __name__ == "__main__":
+
+    URL = input("Podaj adres www dostawy: ")
+    plik = input("Podaj nazwę pliku: ")
+
+    with requests.Session() as session:
+        p = session.post(secret["LOGIN_URL"], data=secret["payload"])
+
+        ScrapeDelivery(URL, plik, session)
