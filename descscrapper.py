@@ -100,9 +100,9 @@ def GetProductData(page: "Response") -> dict:
 
 
 def CompileDescription(data: dict) -> str:
-    # szablon sekcji opisu
-    descpart = []
 
+    # szablon sekcji opisu
+    Style_Sidetoside_head = '<section class="section">\n'
     Style_Sidetoside_template_1 = Template(
         """<div class="item item-6">
                 <section class="image-item">
@@ -118,8 +118,9 @@ def CompileDescription(data: dict) -> str:
                 </section>
             </div>\n"""
     )
+    Style_Sidetoside_foot = "</section>\n"
 
-    Style_Oneline_template_1 = Template(
+    Style_Oneline_template_text = Template(
         """<section class="section">
                 <div class="item item-12">
                     <section class="text-item">
@@ -129,7 +130,7 @@ def CompileDescription(data: dict) -> str:
             </section>\n"""
     )
 
-    Style_Oneline_template_2 = Template(
+    Style_Oneline_template_img = Template(
         """<section class="section">
                 <div class="item item-12">
                     <section class="image-item">
@@ -139,16 +140,7 @@ def CompileDescription(data: dict) -> str:
             </section>\n"""
     )
 
-    descpart.append(Style_Oneline_template_1)
-    descpart.append(Style_Oneline_template_2)
-
-    # descpart.append('<section class="section">\n')
-    # descpart.append("</section>\n")
-
     # pierwsza sekcja specyfikacja + zawartość
-    if "spec" not in data:
-        return ""
-
     firstsection = data.setdefault("spec", "")
 
     if "set" in data:
@@ -164,17 +156,17 @@ def CompileDescription(data: dict) -> str:
                     </section>\n""".format(
             firstsection
         )
+    else:
+        desc = ""
 
-    # kolejne sekcje nagłówek/opis + zdjęcie naprzemiennie
+    # kolejne sekcje nagłówek+opis / zdjęcie naprzemiennie
     for t, (i, d) in zip(
-        data["titles"], zip_longest(data["img"], data["opis"], fillvalue="None")
+        data["titles"], zip_longest(data["img"], data["opis"], fillvalue="")
     ):
         desc = (
             desc
-            # + descpart[2]
-            + descpart[0].substitute(img=i, title=t, section=d)
-            + descpart[1].substitute(img=i, title=t, section=d)
-            # + descpart[3]
+            + Style_Oneline_template_text.substitute(img=i, title=t, section=d)
+            + Style_Oneline_template_img.substitute(img=i, title=t, section=d)
         )
     return desc
 
