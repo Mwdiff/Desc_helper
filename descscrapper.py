@@ -37,18 +37,21 @@ def GetProductData(page: "Response") -> dict:
 
     # Cena zakupu netto
     net_price = souped_page.find("span", id="price_net_val")
-    product_data["net"] = net_price.get_text().strip(" PLN")
+    product_data["net"] = net_price.get_text().strip(" PLN").replace(" ", "")
 
     # Cena SRP
     srp_price = souped_page.find("span", id="srp_val")
-    product_data["srp"] = srp_price.get_text().strip(" PLN")
+    product_data["srp"] = srp_price.get_text().strip(" PLN").replace(" ", "")
 
     description = souped_page.find("div", id="component_projector_longdescription_not")
 
     # Tworzy listę nagłówków z opisu
-    product_data["titles"] = [
-        tit.get_text(strip=True) for tit in description.find_all("h3")
-    ]
+    try:
+        product_data["titles"] = [
+            tit.get_text(strip=True) for tit in description.find_all("h3")
+        ]
+    except:
+        return product_data
 
     # Tworzy listę akapitów z opisu
     product_data["opis"] = [
@@ -68,7 +71,14 @@ def GetProductData(page: "Response") -> dict:
     specification = description.find("tbody")
     try:
         spec = str(specification)
-        reps = {"tbody": "ul", "tr>": "li>", "th>": "b>", "<td>": "", "</td>": ""}
+        reps = {
+            "tbody": "ul",
+            "tr>": "li>",
+            "th>": "b>",
+            "<br>": " ",
+            "<td>": "",
+            "</td>": "",
+        }
         for o, n in reps.items():
             spec = spec.replace(o, n)
 
@@ -92,52 +102,79 @@ def GetProductData(page: "Response") -> dict:
 def CompileDescription(data: dict) -> str:
     # szablon sekcji opisu
     descpart = []
-    descpart.append(
-        Template(
-            """<div class="item item-6">
+
+    Style_Sidetoside_template_1 = Template(
+        """<div class="item item-6">
+                <section class="image-item">
+                    <img src="$img" />
+                </section>
+            </div>\n"""
+    )
+
+    Style_Sidetoside_template_2 = Template(
+        """<div class="item item-6">
+                <section class="text-item">
+                    <h1>$title</h1><p>$section</p>
+                </section>
+            </div>\n"""
+    )
+
+    Style_Oneline_template_1 = Template(
+        """<section class="section">
+                <div class="item item-12">
+                    <section class="text-item">
+                        <h2>$title</h2><p>$section</p>
+                    </section>
+                </div>
+            </section>\n"""
+    )
+
+    Style_Oneline_template_2 = Template(
+        """<section class="section">
+                <div class="item item-12">
                     <section class="image-item">
                         <img src="$img" />
                     </section>
-                </div>\n"""
-        )
+                </div>
+            </section>\n"""
     )
-    descpart.append(
-        Template(
-            """<div class="item item-6">
-                    <section class="text-item">
-                        <h1>$title</h1><p>$section</p>
-                    </section>
-                </div>\n"""
-        )
-    )
-    descpart.append('<section class="section">\n')
-    descpart.append("</section>\n")
+
+    descpart.append(Style_Oneline_template_1)
+    descpart.append(Style_Oneline_template_2)
+
+    # descpart.append('<section class="section">\n')
+    # descpart.append("</section>\n")
 
     # pierwsza sekcja specyfikacja + zawartość
-    firstsection = data["spec"]
+    if "spec" not in data:
+        return ""
+
+    firstsection = data.setdefault("spec", "")
+
     if "set" in data:
         firstsection += "\n" + data["set"]
 
-    desc = """<section class="section">
-                    <div class="item item-6">
-                        <section class="text-item">
-                            {}
-                        </section>
-                    </div>
-                </section>\n""".format(
-        firstsection
-    )
+    if firstsection != "":
+        desc = """<section class="section">
+                        <div class="item item-12">
+                            <section class="text-item">
+                                {}
+                            </section>
+                        </div>
+                    </section>\n""".format(
+            firstsection
+        )
 
     # kolejne sekcje nagłówek/opis + zdjęcie naprzemiennie
-    for i, (imgu, t, d) in enumerate(
-        zip_longest(data["img"], data["titles"], data["opis"], fillvalue="None")
+    for t, (i, d) in zip(
+        data["titles"], zip_longest(data["img"], data["opis"], fillvalue="None")
     ):
         desc = (
             desc
-            + descpart[2]
-            + descpart[i % 2].substitute(img=imgu, title=t, section=d)
-            + descpart[(i + 1) % 2].substitute(img=imgu, title=t, section=d)
-            + descpart[3]
+            # + descpart[2]
+            + descpart[0].substitute(img=i, title=t, section=d)
+            + descpart[1].substitute(img=i, title=t, section=d)
+            # + descpart[3]
         )
     return desc
 
