@@ -1,3 +1,5 @@
+#!C:\Users\hande\Documents\Python scripts\Desc_helper-master\desc_helper_venv\Scripts\python
+
 from itertools import zip_longest
 from pathlib import Path
 from string import Template
@@ -48,8 +50,8 @@ def GetProductData(page: "Response") -> dict:
     # Tworzy listę nagłówków z opisu
     try:
         product_data["titles"] = [
-            tit.get_text(strip=True)
-            for tit in description.find_all("h3")
+            tit.get_text(strip=True) for tit in description.find_all("h3")
+            if tit.get_text(strip=True) 
         ]
     except:
         return product_data
@@ -72,7 +74,14 @@ def GetProductData(page: "Response") -> dict:
     specification = description.find("tbody")
     try:
         spec = str(specification)
-        reps = {"tbody": "ul", "tr>": "li>", "th>": "b>", "<br>": " ", "<td>": "", "</td>": ""}
+        reps = {
+            "tbody": "ul",
+            "tr>": "li>",
+            "th>": "b>",
+            "<br>": " ",
+            "<td>": "",
+            "</td>": "",
+        }
         for o, n in reps.items():
             spec = spec.replace(o, n)
 
@@ -89,14 +98,14 @@ def GetProductData(page: "Response") -> dict:
                 break
 
         product_data["set"] = list + str(content)
-        
+
     return product_data
 
 
 def CompileDescription(data: dict) -> str:
+
     # szablon sekcji opisu
-    descpart = []
-    
+    Style_Sidetoside_head = '<section class="section">\n'
     Style_Sidetoside_template_1 = Template(
         """<div class="item item-6">
                 <section class="image-item">
@@ -104,8 +113,7 @@ def CompileDescription(data: dict) -> str:
                 </section>
             </div>\n"""
     )
-    
-    
+
     Style_Sidetoside_template_2 = Template(
         """<div class="item item-6">
                 <section class="text-item">
@@ -113,8 +121,9 @@ def CompileDescription(data: dict) -> str:
                 </section>
             </div>\n"""
     )
+    Style_Sidetoside_foot = "</section>\n"
 
-    Style_Oneline_template_1 = Template(
+    Style_Oneline_template_text = Template(
         """<section class="section">
                 <div class="item item-12">
                     <section class="text-item">
@@ -123,9 +132,8 @@ def CompileDescription(data: dict) -> str:
                 </div>
             </section>\n"""
     )
-    
 
-    Style_Oneline_template_2 = Template(
+    Style_Oneline_template_img = Template(
         """<section class="section">
                 <div class="item item-12">
                     <section class="image-item">
@@ -134,19 +142,10 @@ def CompileDescription(data: dict) -> str:
                 </div>
             </section>\n"""
     )
-    
-    descpart.append(Style_Oneline_template_1)
-    descpart.append(Style_Oneline_template_2)
-        
-    #descpart.append('<section class="section">\n')
-    #descpart.append("</section>\n")
 
     # pierwsza sekcja specyfikacja + zawartość
-    if "spec" not in data:
-        return ""
-    
     firstsection = data.setdefault("spec", "")
-    
+
     if "set" in data:
         firstsection += "\n" + data["set"]
 
@@ -160,15 +159,17 @@ def CompileDescription(data: dict) -> str:
                     </section>\n""".format(
             firstsection
         )
+    else:
+        desc = ""
 
-    # kolejne sekcje nagłówek/opis + zdjęcie naprzemiennie
-    for t, (i, d) in zip(data["titles"], zip_longest(data["img"], data["opis"], fillvalue="None")):
+    # kolejne sekcje nagłówek+opis / zdjęcie naprzemiennie
+    for t, (i, d) in zip(
+        data["titles"], zip_longest(data["img"], data["opis"], fillvalue="")
+    ):
         desc = (
             desc
-            #+ descpart[2]
-            + descpart[0].substitute(img=i, title=t, section=d)
-            + descpart[1].substitute(img=i, title=t, section=d)
-            #+ descpart[3]
+            + Style_Oneline_template_text.substitute(img=i, title=t, section=d)
+            + Style_Oneline_template_img.substitute(img=i, title=t, section=d)
         )
     return desc
 
@@ -197,6 +198,7 @@ def WriteToSheet(data: dict, file: str = "PlikDostawy") -> None:
 
     wb.save(f"./output/{file}.xlsx")
 
+
 def ScrapeDelivery(
     URL: str, plik: str, s: requests.Session = requests.Session()
 ) -> None:
@@ -207,7 +209,8 @@ def ScrapeDelivery(
     for product in products:
         data = GetProductData(GetWebpage(product, s))
         WriteToSheet(data, plik)
-        sleep(0.2)
+        sleep(0.5)
+
 
 if __name__ == "__main__":
 
