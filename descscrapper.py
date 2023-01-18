@@ -1,3 +1,5 @@
+#!C:\Users\hande\Documents\Python scripts\Desc_helper-master\desc_helper_venv\Scripts\python
+
 from itertools import zip_longest
 from pathlib import Path
 from string import Template
@@ -48,7 +50,9 @@ def GetProductData(page: "Response") -> dict:
     # Tworzy listę nagłówków z opisu
     try:
         product_data["titles"] = [
-            tit.get_text(strip=True) for tit in description.find_all("h3")
+            tit.get_text(strip=True)
+            for tit in description.find_all("h3")
+            if tit.get_text(strip=True)
         ]
     except:
         return product_data
@@ -206,7 +210,7 @@ def ScrapeDelivery(
     for product in products:
         data = GetProductData(GetWebpage(product, s))
         WriteToSheet(data, plik)
-        sleep(0.2)
+        sleep(0.5)
 
 
 if __name__ == "__main__":
