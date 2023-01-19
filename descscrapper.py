@@ -54,15 +54,36 @@ def GetProductData(page: "Response") -> dict:
             for tit in description.find_all("h3")
             if tit.get_text(strip=True)
         ]
+        if not product_data["titles"]:
+            product_data["titles"] = [
+                tit.get_text(strip=True)
+                for tit in description.find_all(style="font-size: 14pt;")
+                if tit.get_text(strip=True)
+            ]
     except:
         return product_data
 
     # Tworzy listę akapitów z opisu
     product_data["opis"] = [
         d.get_text(strip=True)
-        for d in description.find_all("p")
+        for d in description.find_all(["p", "div"])
         if d.get_text(strip=True)
+        and "iai_bottom" not in d.get_attribute_list("class")
+        and "table-wrapper" not in d.get_attribute_list("class")
     ]
+
+    if product_data["opis"][1] in product_data["opis"][0]:
+        product_data["opis"].pop(0)
+
+    product_data["opis"] = [
+        item for item in product_data["opis"] if item not in product_data["titles"]
+    ]
+
+    # # test
+    # try:
+    #     print(product_data["opis"][0], end="\n\n")
+    # except:
+    #     print("err", end="\n\n")
 
     # Tworzy listę adresów zdjęć z opisu
     for img in description.find_all("img"):
@@ -70,6 +91,11 @@ def GetProductData(page: "Response") -> dict:
         if not "http" in imgurl:
             imgurl = secret["site"] + imgurl
         product_data["img"].append(imgurl)
+
+    if len(product_data["img"]) > len(product_data["opis"]):
+        nondupe = []
+        [nondupe.append(i) for i in product_data["img"] if i not in nondupe]
+        product_data["img"] = nondupe
 
     # Specyfikacja
     specification = description.find("tbody")
@@ -189,13 +215,23 @@ def WriteToSheet(data: dict, file: str = "PlikDostawy") -> None:
     ws = wb.active
     row = ws.max_row + 1
 
+    desc = CompileDescription(data)
+
     ws.cell(row, 1).value = data["sku"]
     ws.cell(row, 2).value = data["net"]
     ws.cell(row, 3).value = data["srp"]
-    ws.cell(row, 4).value = CompileDescription(data)
+    ws.cell(row, 4).value = desc
 
     for i, img in enumerate(data["img"], start=5):
         ws.cell(row, i).value = img
+
+    with open(f"./output/{file}_opis.txt", "a", encoding="utf8") as txt:
+        print(
+            "----------------------------------------------------------------------------------------------",
+            file=txt,
+        )
+        print("SKU: " + data["sku"], file=txt, end="\n")
+        print(desc, file=txt, end="\n\n")
 
     wb.save(f"./output/{file}.xlsx")
 
