@@ -50,18 +50,43 @@ def GetProductData(page: "Response") -> dict:
     # Tworzy listę nagłówków z opisu
     try:
         product_data["titles"] = [
-            tit.get_text(strip=True) for tit in description.find_all("h3")
-            if tit.get_text(strip=True) 
+            tit.get_text(strip=True)
+            for tit in description.find_all("h3")
+            if tit.get_text(strip=True)
         ]
+        if not product_data["titles"]:
+            product_data["titles"] = [
+                tit.get_text(strip=True)
+                for tit in description.find_all(style="font-size: 14pt;")
+                if tit.get_text(strip=True)
+            ]
     except:
         return product_data
 
     # Tworzy listę akapitów z opisu
     product_data["opis"] = [
         d.get_text(strip=True)
-        for d in description.find_all("p")
+        for d in description.find_all(["p", "div"])
         if d.get_text(strip=True)
+        and "iai_bottom" not in d.get_attribute_list("class")
+        and "table-wrapper" not in d.get_attribute_list("class")
     ]
+    
+    try:
+        if product_data["opis"][1] in product_data["opis"][0]:
+            product_data["opis"].pop(0)
+    except:
+        pass
+
+    product_data["opis"] = [
+        item for item in product_data["opis"] if item not in product_data["titles"]
+    ]
+
+    # # test
+    # try:
+    #     print(product_data["opis"][0], end="\n\n")
+    # except:
+    #     print("err", end="\n\n")
 
     # Tworzy listę adresów zdjęć z opisu
     for img in description.find_all("img"):
@@ -69,6 +94,11 @@ def GetProductData(page: "Response") -> dict:
         if not "http" in imgurl:
             imgurl = secret["site"] + imgurl
         product_data["img"].append(imgurl)
+
+    if len(product_data["img"]) > len(product_data["opis"]):
+        nondupe = []
+        [nondupe.append(i) for i in product_data["img"] if i not in nondupe]
+        product_data["img"] = nondupe
 
     # Specyfikacja
     specification = description.find("tbody")
@@ -92,9 +122,11 @@ def GetProductData(page: "Response") -> dict:
     # W zestawie
     content = description.find("ul")
     if content != None:
+        list = ""
         for sibling in content.previous_siblings:
             if sibling.name == "h3":
-                list = "<h2>" + sibling.string + ":</h2>\n"
+                header = sibling.get_text(strip=True)
+                list = "<h2>" + header + ("" if ":" in header else ":") + "</h2>\n"
                 break
 
         product_data["set"] = list + str(content)
@@ -188,13 +220,23 @@ def WriteToSheet(data: dict, file: str = "PlikDostawy") -> None:
     ws = wb.active
     row = ws.max_row + 1
 
+    desc = CompileDescription(data)
+
     ws.cell(row, 1).value = data["sku"]
     ws.cell(row, 2).value = data["net"]
     ws.cell(row, 3).value = data["srp"]
-    ws.cell(row, 4).value = CompileDescription(data)
+    ws.cell(row, 4).value = desc
 
     for i, img in enumerate(data["img"], start=5):
         ws.cell(row, i).value = img
+
+    with open(f"./output/{file}_opis.txt", "a", encoding="utf8") as txt:
+        print(
+            "----------------------------------------------------------------------------------------------",
+            file=txt,
+        )
+        print("SKU: " + data["sku"], file=txt, end="\n\n")
+        print(desc, file=txt, end="\n\n")
 
     wb.save(f"./output/{file}.xlsx")
 
@@ -206,18 +248,24 @@ def ScrapeDelivery(
 
     products = ExtractProductList(GetWebpage(URL, s))
 
-    for product in products:
+    for nr, product in enumerate(products, start=1):
         data = GetProductData(GetWebpage(product, s))
         WriteToSheet(data, plik)
+        print("Zrobione: {}/{}".format(nr, len(products)), end="\t\t\r")
         sleep(0.5)
 
 
 if __name__ == "__main__":
 
-    URL = input("Podaj adres www dostawy: ")
-    plik = input("Podaj nazwę pliku: ")
-
     with requests.Session() as session:
         p = session.post(secret["LOGIN_URL"], data=secret["payload"])
-
-        ScrapeDelivery(URL, plik, session)
+        
+        while(session):
+            URL = input("Podaj adres www dostawy: ")
+            if not URL:
+                break
+            plik = input("Podaj nazwę pliku: ")
+            
+            ScrapeDelivery(URL, plik, session)
+            print("\nGotowe!\n")
+        
