@@ -1,5 +1,6 @@
 #!C:\Users\hande\Documents\Python scripts\Desc_helper-master\desc_helper_venv\Scripts\python
 
+import re
 from itertools import zip_longest
 from pathlib import Path
 from string import Template
@@ -7,9 +8,25 @@ from time import sleep
 
 import requests
 from bs4 import BeautifulSoup
-from openpyxl import Workbook, load_workbook
+from xlsxwriter import Workbook
 
 from secret import secret
+
+# from openpyxl import Workbook, load_workbook
+
+
+def main():
+    with requests.Session() as session:
+        p = session.post(secret["LOGIN_URL"], data=secret["payload"])
+
+        while session:
+            URL = input("Podaj adres www dostawy: ")
+            if not URL:
+                break
+            plik = input("Podaj nazwę pliku: ")
+
+            ScrapeDelivery(URL, plik, session)
+            print("\nGotowe!\n")
 
 
 def GetWebpage(url: str, s: requests.Session = requests.Session()) -> "Response":
@@ -51,7 +68,7 @@ def GetProductData(page: "Response") -> dict:
     try:
         product_data["titles"] = [
             tit.get_text(strip=True)
-            for tit in description.find_all("h3")
+            for tit in description.find_all(["h3", "h1"])
             if tit.get_text(strip=True)
         ]
         if not product_data["titles"]:
@@ -60,20 +77,23 @@ def GetProductData(page: "Response") -> dict:
                 for tit in description.find_all(style="font-size: 14pt;")
                 if tit.get_text(strip=True)
             ]
-    except:
+    except Exception:
         return product_data
 
     # Tworzy listę akapitów z opisu
     product_data["opis"] = [
         d.get_text(strip=True)
-        for d in description.find_all(["p", "div"])
+        for d in description.find_all(
+            ["p", "div"]
+        )  # [w for w in description.stripped_strings]
         if d.get_text(strip=True)
         and "iai_bottom" not in d.get_attribute_list("class")
         and "table-wrapper" not in d.get_attribute_list("class")
     ]
 
-    if product_data["opis"][1] in product_data["opis"][0]:
-        product_data["opis"].pop(0)
+    if len(product_data["opis"]) > 1:
+        if product_data["opis"][1] in product_data["opis"][0]:
+            product_data["opis"].pop(0)
 
     product_data["opis"] = [
         item for item in product_data["opis"] if item not in product_data["titles"]
@@ -93,9 +113,9 @@ def GetProductData(page: "Response") -> dict:
         product_data["img"].append(imgurl)
 
     if len(product_data["img"]) > len(product_data["opis"]):
-        nondupe = []
-        [nondupe.append(i) for i in product_data["img"] if i not in nondupe]
-        product_data["img"] = nondupe
+        noduplicates = []
+        [noduplicates.append(i) for i in product_data["img"] if i not in noduplicates]
+        product_data["img"] = noduplicates
 
     # Specyfikacja
     specification = description.find("tbody")
@@ -109,8 +129,20 @@ def GetProductData(page: "Response") -> dict:
             "<td>": "",
             "</td>": "",
         }
-        for o, n in reps.items():
-            spec = spec.replace(o, n)
+        regex = {
+            "": re.compile(
+                r"(\s?style=\"[^\>]+\")|(</?span[^>]*>)|(</?td[^>]*>)|<br>|<p>"
+            ),
+            "ul": re.compile("tbody"),
+            "<\g<1>li>": re.compile(r"<(/?)tr[^>]*>"),
+            "<\g<1>\g<2>b>": re.compile(r"<(/?)th[^>]*>|<(/?)strong[^>]*>"),
+            "; ": re.compile(r"</p>"),
+        }
+
+        # for o, n in reps.items():
+        #     spec = spec.replace(o, n)
+        for sub, rex in regex.items():
+            spec = rex.sub(sub, spec)
 
         product_data["spec"] = "<h2>Specyfikacja:</h2>\n" + spec
     except:
@@ -119,9 +151,11 @@ def GetProductData(page: "Response") -> dict:
     # W zestawie
     content = description.find("ul")
     if content != None:
+        list = ""
         for sibling in content.previous_siblings:
             if sibling.name == "h3":
-                list = "<h2>" + sibling.string + ":</h2>\n"
+                header = sibling.get_text(strip=True)
+                list = "<h2>" + header + ("" if ":" in header else ":") + "</h2>\n"
                 break
 
         product_data["set"] = list + str(content)
@@ -198,6 +232,7 @@ def CompileDescription(data: dict) -> str:
             + Style_Oneline_template_text.substitute(img=i, title=t, section=d)
             + Style_Oneline_template_img.substitute(img=i, title=t, section=d)
         )
+
     return desc
 
 
@@ -230,7 +265,7 @@ def WriteToSheet(data: dict, file: str = "PlikDostawy") -> None:
             "----------------------------------------------------------------------------------------------",
             file=txt,
         )
-        print("SKU: " + data["sku"], file=txt, end="\n")
+        print("SKU: " + data["sku"], file=txt, end="\n\n")
         print(desc, file=txt, end="\n\n")
 
     wb.save(f"./output/{file}.xlsx")
@@ -243,18 +278,27 @@ def ScrapeDelivery(
 
     products = ExtractProductList(GetWebpage(URL, s))
 
-    for product in products:
+    wb = Workbook(f"./output/{plik}.xlsx")
+    ws = wb.add_worksheet(plik)
+    ws.write_row(0, 0, ["sku", "Zakup netto", "SRP", "Opis", "Zdjęcia ->"])
+    row = 1
+
+    for nr, product in enumerate(products, start=1):
         data = GetProductData(GetWebpage(product, s))
-        WriteToSheet(data, plik)
+        # WriteToSheet(data, plik)
+        # desc = CompileDescription(data)
+        ws.write_row(
+            row,
+            0,
+            [data["sku"], data["net"], data["srp"], CompileDescription(data)]
+            + data["img"],
+        )
+        print("Zrobione: {}/{}".format(nr, len(products)), end="\t\t\r")
+        row += 1
         sleep(0.5)
+
+    wb.close()
 
 
 if __name__ == "__main__":
-
-    URL = input("Podaj adres www dostawy: ")
-    plik = input("Podaj nazwę pliku: ")
-
-    with requests.Session() as session:
-        p = session.post(secret["LOGIN_URL"], data=secret["payload"])
-
-        ScrapeDelivery(URL, plik, session)
+    main()
