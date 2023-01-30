@@ -6,6 +6,8 @@ from pathlib import Path
 from xlsxwriter import Workbook, worksheet
 
 config = ConfigParser()
+if not Path("./config.ini").exists():
+    raise FileNotFoundError("config.ini file is missing!")
 config.read("config.ini")
 OUTPUT_PATH = config["General"]["output_path"]
 
@@ -24,6 +26,8 @@ class WriteSpreadsheet:
 
     def __exit__(self, exc_type, exc_value, exc_trace) -> None:
         self.workbook.close()
+        if exc_type:
+            write_log(exc_type, exc_value, exc_trace)
 
 
 def generate_filename(url: str) -> str:
@@ -50,3 +54,11 @@ def backup_text_file(sku: str, description: str, filename: str) -> None:
         print("-" * 100, file=txtfile)
         print("SKU: " + sku, file=txtfile, end="\n\n")
         print(description, file=txtfile, end="\n\n")
+
+
+def write_log(exc_type: Exception, exc_value: str = "", exc_trace: str = ""):
+    with open("./error_log.txt", "a") as log:
+        print("-" * 50, file=log, end="\n")
+        print(datetime.today().strftime("%d-%m-%Y, %H:%M:%S"), file=log, end="\n\n")
+        print(exc_type, f"({exc_value})", file=log, end="\n")
+        print("\t", exc_trace, file=log, end="\n\n")

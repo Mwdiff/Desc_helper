@@ -1,9 +1,12 @@
 from configparser import ConfigParser
+from pathlib import Path
 
 from bs4 import BeautifulSoup
 from requests import Response, Session
 
 config = ConfigParser()
+if not Path("./config.ini").exists():
+    raise FileNotFoundError("config.ini file is missing!")
 config.read("config.ini")
 SITE = config["General"]["site"]
 

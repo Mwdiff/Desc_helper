@@ -1,12 +1,15 @@
 import re
 from configparser import ConfigParser
 from itertools import zip_longest
+from pathlib import Path
 from string import Template
 
 from bs4 import BeautifulSoup, NavigableString
 from requests import Response
 
 config = ConfigParser()
+if not Path("./config.ini").exists():
+    raise FileNotFoundError("config.ini file is missing!")
 config.read("config.ini")
 SITE = config["General"]["site"]
 
@@ -55,12 +58,17 @@ class ProductData:
                 {
                     title.get_text(strip=True): ""
                     for title in self._body.find_all(header_filter)
-                    if not title.find("span", style=re.compile(r"12pt;"))
+                    if not title.find("span", style=re.compile(r"12pt;|10pt;"))
                     and title.get_text(strip=True)
                 }
             )
+
         except AttributeError:
             self.headers = []
+
+        for header in reversed(self.headers):
+            if re.match(r"^specyfikacja|.*zestaw", header, flags=re.IGNORECASE):
+                self.headers.pop()
 
     def _gen_description_text(self, element: BeautifulSoup) -> list[str]:
         try:
@@ -115,14 +123,16 @@ class ProductData:
 
     def _gen_specification(self) -> None:
         try:
-            spec = self._body.find("tbody")
+            spec = self._body.find_all("tbody")
         except AttributeError:
             self.specification = ""
         else:
-            if spec is None:
+            if not spec:
                 self.specification = ""
                 return
-            spec_str = str(spec)
+            spec_str = ""
+            for table in spec:
+                spec_str += str(table) + "\n"
             regex = {
                 "": re.compile(
                     r"(\s?style=\"[^\>]+\")|(</?span[^>]*>)|(</?td[^>]*>)|<br>|<p>"
@@ -174,8 +184,8 @@ class ProductData:
             )
 
         # kolejne sekcje nagłówek+opis / zdjęcie naprzemiennie
-        for t, (i, d) in zip(
-            self.headers, zip_longest(self.images, self.description_text, fillvalue="")
+        for t, i, d in zip_longest(
+            self.headers, self.images, self.description_text, fillvalue=""
         ):
             description = (
                 description
