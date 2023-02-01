@@ -67,7 +67,7 @@ class ProductData:
             self.headers = []
 
         for header in reversed(self.headers):
-            if re.match(r"specyfikacja|.*zestaw", header, flags=re.IGNORECASE):
+            if re.match(r"specyfikacja.{0,5}$|^.{0,10}zestaw.{0,5}$", header, flags=re.IGNORECASE):
                 self.headers.pop()
 
     def _gen_description_text(self, element: BeautifulSoup) -> list[str]:
@@ -83,14 +83,20 @@ class ProductData:
         except AttributeError:
             self.description_text = []
             return
+        except TypeError:
+            description_items = []
 
         if not description_items:
             description_items = self._gen_description_text(element.contents[0])
 
         if not self.headers:
             self._gen_headers()
+
         self.description_text = [
-            item for item in description_items if item not in self.headers and not re.match(r"specyfikacja|.*zestaw", item, flags=re.IGNORECASE)
+            item
+            for item in description_items
+            if item not in self.headers
+            and not re.match(r"specyfikacja.{0,5}$|^.{0,10}zestaw.{0,5}$", item, flags=re.IGNORECASE)
         ]
         return self.description_text
 
