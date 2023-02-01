@@ -1,0 +1,1 @@
+pyinstaller -n DescHelper --add-data 'config.ini;.' main.py
