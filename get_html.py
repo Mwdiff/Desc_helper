@@ -25,8 +25,8 @@ class WebConnection:
     def generate_product_pages(self, url: str) -> Response:
         """Generates individual product html pages from supplied URL"""
 
-        page = self._session.get(url)
-        if "product-" in url:
+        page = self._session.get(url, allow_redirects=True)
+        if "product-" in url or "search.php" in url:
             self.product_number = 1
             yield page
 
@@ -38,3 +38,13 @@ class WebConnection:
                 "href"
             )
             yield self._session.get(product_url)
+
+    def generate_from_list(self, list: list[str]) -> Response:
+        """Generates individual product html pages from supplied URL list"""
+
+        self.product_number = len(list)
+        for product in list:
+            product_url = (
+                "" if "http" in product else SITE + "/search.php?text="
+            ) + product.strip("rcRC ").zfill(6)
+            yield self._session.get(product_url, allow_redirects=True)

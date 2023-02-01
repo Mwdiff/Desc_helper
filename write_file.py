@@ -40,12 +40,21 @@ def generate_filename(url: str) -> str:
 
     filename += "-" + datetime.today().strftime("%d-%m")
 
-    if Path(f"{OUTPUT_PATH}{filename}.xlsx").exists():
-        count = 1
-        while Path(f"{OUTPUT_PATH}{filename}({count}).xlsx").exists():
-            count += 1
-        filename = filename + f"({count})"
+    filename = check_duplicate_name(filename)
 
+    return filename
+
+
+def check_duplicate_name(
+    filename: str, path: str = OUTPUT_PATH, extension: str = "xlsx"
+) -> str:
+    if not filename:
+        return ""
+    if Path(f"{path}{filename}.{extension}").exists():
+        count = 1
+        while Path(f"{path}{filename}({count}).{extension}").exists():
+            count += 1
+        filename += f"({count})"
     return filename
 
 
