@@ -26,6 +26,7 @@ class ProductData:
         self._gen_sku()
         self._gen_net()
         self._gen_srp()
+        self._gen_qty()
 
         self._gen_headers()
         self._gen_description_text(self._body)
@@ -52,6 +53,14 @@ class ProductData:
             .replace(" ", "")
         )
 
+    def _gen_qty(self) -> None:
+        self.qty = (
+            self._page.find("div", class_="projector_avail")
+            .get_text()
+            .replace("szt.", "")
+            .strip()
+        )
+
     def _gen_headers(self) -> None:
         try:
             self.headers = list(
@@ -67,7 +76,11 @@ class ProductData:
             self.headers = []
 
         for header in reversed(self.headers):
-            if re.match(r"specyfikacja.{0,5}$|^.{0,10}zestaw.{0,5}$", header, flags=re.IGNORECASE):
+            if re.match(
+                r"specyfikacja.{0,5}$|^.{0,10}zestaw.{0,5}$",
+                header,
+                flags=re.IGNORECASE,
+            ):
                 self.headers.pop()
 
     def _gen_description_text(self, element: BeautifulSoup) -> list[str]:
@@ -87,7 +100,9 @@ class ProductData:
             description_items = []
 
         if not description_items:
-            description_items = self._gen_description_text(element.contents[0])
+            for child in element.contents:
+                if child.get_text(strip=True) and child.name != "style":
+                    description_items = self._gen_description_text(child)
 
         if not self.headers:
             self._gen_headers()
@@ -96,7 +111,12 @@ class ProductData:
             item
             for item in description_items
             if item not in self.headers
-            and not re.match(r"specyfikacja.{0,5}$|^.{0,10}zestaw.{0,5}$", item, flags=re.IGNORECASE)
+            and not re.match(
+                r"specyfikacja.{0,5}$|^.{0,10}zestaw.{0,5}$", item, flags=re.IGNORECASE
+            )
+            and not re.match(
+                r"Marka .+ jest częścią ekosystemu Xiaomi", item, flags=re.IGNORECASE
+            )
         ]
         return self.description_text
 
@@ -105,6 +125,9 @@ class ProductData:
             {
                 ("" if "http" in image.get("src") else SITE) + image.get("src"): ""
                 for image in self._body.find_all("img")
+                if not re.match(
+                r".*xiaomi_logo", image.get("src"), flags=re.IGNORECASE
+                )
             }
         )
 

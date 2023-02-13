@@ -1,3 +1,4 @@
+import re
 from configparser import ConfigParser
 from pathlib import Path
 
@@ -26,10 +27,13 @@ class WebConnection:
         """Generates individual product html pages from supplied URL"""
 
         page = self._session.get(url, allow_redirects=True)
-        if "product-" in url or "search.php" in url: #trza poprawić
+        if "product-" in url or re.search(
+            r"search\.php\?text=\d{5,13}", url, flags=re.IGNORECASE
+        ):
             self.product_number = 1
             yield page
-        
+            return
+
         souped_page = BeautifulSoup(page.content, "lxml")
         products = souped_page.find_all("a", class_="product-name")
         self.product_number = len(products)

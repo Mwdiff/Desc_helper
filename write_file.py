@@ -2,6 +2,8 @@ import re
 from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
+from traceback import print_exception
+from types import TracebackType
 
 from xlsxwriter import Workbook, worksheet
 
@@ -15,12 +17,13 @@ OUTPUT_PATH = config["General"]["output_path"]
 class WriteSpreadsheet:
     def __init__(self, filename: str) -> None:
         self.filename = filename
+        Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 
     def __enter__(self) -> worksheet:
         self.workbook = Workbook(f"{OUTPUT_PATH}{self.filename}.xlsx")
         self.worksheet = self.workbook.add_worksheet(self.filename)
         self.worksheet.write_row(
-            0, 0, ["sku", "Zakup netto", "SRP", "Opis", "Zdjęcia ->"]
+            0, 0, ["sku", "Zakup netto", "SRP", "Ilość", "Opis", "Zdjęcia ->"]
         )
         return self.worksheet
 
@@ -65,8 +68,11 @@ def backup_text_file(sku: str, description: str, filename: str) -> None:
         print(description, file=txtfile, end="\n\n")
 
 
-def write_log(exc_type: Exception, exc_value: str = "", exc_trace: str = ""):
+def write_log(
+    exc_type: Exception, exc_value: Exception = None, exc_trace: TracebackType = None
+):
     with open("./error_log.txt", "a") as log:
         print("-" * 50, file=log, end="\n")
         print(datetime.today().strftime("%d-%m-%Y, %H:%M:%S"), file=log, end="\n\n")
-        print(exc_type, f"({exc_value})", file=log, end="\n")
+        # print(exc_type, f"({exc_value})", file=log, end="\n")
+        print_exception(exc_type, exc_value, exc_trace, file=log)
