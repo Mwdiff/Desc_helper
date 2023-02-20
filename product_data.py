@@ -26,6 +26,7 @@ class ProductData:
         self._gen_sku()
         self._gen_net()
         self._gen_srp()
+        self._gen_qty()
 
         self._gen_headers()
         self._gen_description_text(self._body)
@@ -50,6 +51,14 @@ class ProductData:
             .get_text()
             .strip(" PLN")
             .replace(" ", "")
+        )
+
+    def _gen_qty(self) -> None:
+        self.qty = (
+            self._page.find("div", class_="projector_avail")
+            .get_text()
+            .replace("szt.", "")
+            .strip()
         )
 
     def _gen_headers(self) -> None:
@@ -105,6 +114,9 @@ class ProductData:
             and not re.match(
                 r"specyfikacja.{0,5}$|^.{0,10}zestaw.{0,5}$", item, flags=re.IGNORECASE
             )
+            and not re.match(
+                r"Marka .+ jest częścią ekosystemu Xiaomi", item, flags=re.IGNORECASE
+            )
         ]
         return self.description_text
 
@@ -113,6 +125,7 @@ class ProductData:
             {
                 ("" if "http" in image.get("src") else SITE) + image.get("src"): ""
                 for image in self._body.find_all("img")
+                if not re.match(r".*xiaomi_logo", image.get("src"), flags=re.IGNORECASE)
             }
         )
 

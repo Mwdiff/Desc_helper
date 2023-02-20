@@ -3,6 +3,7 @@
 from time import sleep
 
 from get_html import WebConnection
+from gui_root import MainWindow
 from product_data import ProductData
 from write_file import *
 
@@ -13,21 +14,22 @@ config.read("config.ini")
 
 
 def main():
-    session = WebConnection(config["Login"]["login_url"], dict(config["Login_data"]))
+    window = MainWindow()
+    window.mainloop()
 
-    while session:
-        url = input("Podaj adres www dostawy: ")
-        if not url:
-            print("Zakończono")
-            return
+    # while session:
+    #     url = input("Podaj adres www dostawy: ")
+    #     if not url:
+    #         print("Zakończono")
+    #         return
 
-        filename = check_duplicate_name(input("Podaj nazwę pliku: "))
+    #     filename = check_duplicate_name(input("Podaj nazwę pliku: "))
 
-        if "," in url:
-            sku_list = [prod.strip("rcRC ").zfill(6) for prod in url.split(",")]
-            list_loop(session, sku_list, filename)
-        else:
-            product_loop(session, url, filename)
+    #     if "," in url:
+    #         sku_list = [prod.strip("rcRC ").zfill(6) for prod in url.split(",")]
+    #         list_loop(session, sku_list, filename)
+    #     else:
+    #         product_loop(session, url, filename)
 
 
 def product_loop(session: WebConnection, url: str, filename: str = ""):
@@ -46,7 +48,13 @@ def product_loop(session: WebConnection, url: str, filename: str = ""):
             sheet.write_row(
                 row,
                 0,
-                [product.sku, product.net, product.srp, product.description]
+                [
+                    product.sku,
+                    product.net,
+                    product.srp,
+                    product.qty,
+                    product.description,
+                ]
                 + product.images,
             )
 
@@ -85,7 +93,13 @@ def list_loop(session: WebConnection, lista: list[str], filename: str = ""):
             sheet.write_row(
                 row,
                 0,
-                [product.sku, product.net, product.srp, product.description]
+                [
+                    product.sku,
+                    product.net,
+                    product.srp,
+                    product.qty,
+                    product.description,
+                ]
                 + product.images,
             )
 
