@@ -1,8 +1,10 @@
+import asyncio
 from configparser import ConfigParser
 from time import sleep
 
 import customtkinter as ctk
 
+from desc_modules import list_loop
 from get_html import WebConnection
 from product_data import ProductData
 from write_file import WriteSpreadsheet, backup_text_file, check_duplicate_name
@@ -64,7 +66,11 @@ class ListModuleFrame(ctk.CTkFrame):
         )
 
         self.submit_button = ctk.CTkButton(
-            self, text="Generuj", width=120, font=self.label_font, command=self.run
+            self,
+            text="Generuj",
+            width=120,
+            font=self.label_font,
+            command=lambda: asyncio.create_task(self.run()),
         )
         self.submit_button.grid(
             row=3, column=1, padx=(0, 20), pady=(0, 20), sticky="nsew"
@@ -84,70 +90,28 @@ class ListModuleFrame(ctk.CTkFrame):
         )
         self.session = web_session
 
-    def run(self):
+    async def run(self):
         self.output_field.configure(text="Pracuję...")
         self.progress_bar.set(0)
-        print(self.list_input.get("0.0", "end").split(","))
         product_list = [
             prod.strip("rcRC ").zfill(6)
             for prod in self.list_input.get("0.0", "end").replace("\n", "").split(",")
             if prod
         ]
-        print(product_list)
         filename = self.filename_input.get()
-        result = list_loop(
-            self.session, product_list, filename, self.update_progressbar
+        result = await asyncio.to_thread(
+            list_loop,
+            self.session,
+            product_list,
+            filename,
+            self.update_progressbar,
+            asyncio.get_event_loop(),
         )
-        self.output_field.configure(text=result)
+        self.output_field.configure(text=f"Utworzono plik {result}")
         self.filename_label.configure(
             text=f"Domyślna nazwa: '{check_duplicate_name('lista')}'"
         )
 
-    def update_progressbar(self, value):
-        self.progress_bar.set(value)
-        self.update_idletasks()
-
-
-def list_loop(
-    session: WebConnection, lista: list[str], filename: str = "", progress_function=None
-) -> str:
-    if not filename:
-        filename = check_duplicate_name("lista")
-
-    with WriteSpreadsheet(filename) as sheet:
-        row = 1
-
-        for product_page in session.generate_from_list(lista):
-            if "noproduct" in product_page.url:
-                print(f"Brak produktu: {product_page.url}")
-                row += 1
-                continue
-
-            try:
-                product = ProductData(product_page)
-            except AttributeError:
-                continue
-
-            product.assemble_description()
-
-            sheet.write_row(
-                row,
-                0,
-                [
-                    product.sku,
-                    product.net,
-                    product.srp,
-                    product.qty,
-                    product.description,
-                ]
-                + product.images,
-            )
-
-            if config["General"]["generate_txt_file"] == "True":
-                backup_text_file(product.sku, product.description, filename)
-
-            progress_function(row / session.product_number)
-
-            row += 1
-            sleep(0.5)
-        return "Gotowe!"
+    async def update_progressbar(self, current, total):
+        self.progress_bar.set(current / total)
+        self.output_field.configure(text=f"Pracuję... {current}/{total}")

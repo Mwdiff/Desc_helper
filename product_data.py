@@ -4,7 +4,7 @@ from itertools import zip_longest
 from pathlib import Path
 from string import Template
 
-from bs4 import BeautifulSoup, NavigableString
+from bs4 import BeautifulSoup
 from requests import Response
 
 config = ConfigParser()
@@ -20,19 +20,10 @@ class ProductData:
         self._body = self._page.find(
             "div", id="component_projector_longdescription_not"
         )
-        if self._body is None:
-            raise AttributeError
-
         self._gen_sku()
         self._gen_net()
         self._gen_srp()
         self._gen_qty()
-
-        self._gen_headers()
-        self._gen_description_text(self._body)
-        self._gen_image_list()
-        self._gen_contents()
-        self._gen_specification()
 
     def _gen_sku(self):
         self.sku = self._page.find("div", itemprop="productID").text
@@ -60,6 +51,17 @@ class ProductData:
             .replace("szt.", "")
             .strip()
         )
+
+    def initialize_description(self):
+        if self._body is None:
+            self.description = "BRAK"
+            self.images = []
+            raise AttributeError
+        self._gen_headers()
+        self._gen_description_text(self._body)
+        self._gen_image_list()
+        self._gen_contents()
+        self._gen_specification()
 
     def _gen_headers(self) -> None:
         try:

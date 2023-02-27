@@ -37,10 +37,12 @@ def generate_filename(url: str) -> str:
     filename = "arkusz"
     try:
         for match in re.search(
-            r"-marki-(\w+)-|search\.php\?text=(\w+)|product-pol-\d+-(.{20})", url
+            r"-produktow-(?>marki-)?([\w-]+)-news|search\.php\?text=([\w\-\+]+)|product-pol-\d+-(.{20})",
+            url,
         ).group(1, 2, 3):
             if match is not None:
                 filename = match.replace("+", "-")
+                continue
     except AttributeError:
         pass
 

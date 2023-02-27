@@ -1,3 +1,4 @@
+import asyncio
 from configparser import ConfigParser
 
 import customtkinter as ctk
@@ -9,18 +10,13 @@ from gui_product_module import ProductModuleFrame
 config = ConfigParser()
 config.read("config.ini")
 
-# def process_inputs(input1, input2, progress_fun):
-#     count = 0
-#     for i in range(int(input1), int(input2)):
-#         progress_fun(i / (int(input2) - 1))
-#         sleep(0.1)
-#         count += 1
-#     return f"The process finished successfully, count={count}"
-
 
 class MainWindow(ctk.CTk):
-    def __init__(self):
+    def __init__(self, session: WebConnection):
         super().__init__()
+
+        self.session = session
+        self.protocol("WM_DELETE_WINDOW", self.close)
 
         self.geometry("800x600")
         self.title("Generator opisów")
@@ -39,14 +35,19 @@ class MainWindow(ctk.CTk):
         # self.frame1 = ProductModuleFrame(self.session, self)
         # self.frame1.grid(row=1, column=0, padx=20, pady=10, sticky="new")
 
+    async def show(self):
+        self.open = True
+        while self.open:
+            self.update()
+            await asyncio.sleep(0.05)
+
+    def close(self):
+        self.open = False
+
 
 class MyTabView(ctk.CTkTabview):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-
-        self.session = WebConnection(
-            config["Login"]["login_url"], dict(config["Login_data"])
-        )
 
         # create tabs
         self.add("Opisy z url")
@@ -54,11 +55,14 @@ class MyTabView(ctk.CTkTabview):
 
         # add widgets on tabs
         self.frame1 = ProductModuleFrame(
-            self.session, master=self.tab("Opisy z url"), width=800, height=600
+            master.session,
+            master=self.tab("Opisy z url"),
+            width=800,
+            height=600,
         )
         self.frame1.pack(padx=10, pady=10, expand=0, fill="both")
 
         self.frame2 = ListModuleFrame(
-            self.session, master=self.tab("Opisy z listy"), width=800, height=600
+            master.session, master=self.tab("Opisy z listy"), width=800, height=600
         )
         self.frame2.pack(padx=10, pady=10, expand=0, fill="both")

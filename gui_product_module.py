@@ -1,18 +1,23 @@
+import asyncio
 from configparser import ConfigParser
-from time import sleep
 
 import customtkinter as ctk
 
+from desc_modules import product_loop
 from get_html import WebConnection
-from product_data import ProductData
-from write_file import WriteSpreadsheet, backup_text_file, generate_filename
+from write_file import generate_filename
 
 config = ConfigParser()
 config.read("config.ini")
 
 
 class ProductModuleFrame(ctk.CTkFrame):
-    def __init__(self, web_session: WebConnection, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        web_session: WebConnection,
+        *args,
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
@@ -64,7 +69,11 @@ class ProductModuleFrame(ctk.CTkFrame):
         )
 
         self.submit_button = ctk.CTkButton(
-            self, text="Generuj", width=120, font=self.label_font, command=self.run
+            self,
+            text="Generuj",
+            width=120,
+            font=self.label_font,
+            command=lambda: asyncio.create_task(self.run()),
         )
         self.submit_button.grid(
             row=3, column=1, padx=(0, 20), pady=(0, 20), sticky="nsew"
@@ -85,14 +94,21 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.session = web_session
         self.after(100, self.label_updater)
 
-    def run(self):
+    async def run(self):
         self.output_field.configure(text="Pracuję...")
         self.progress_bar.set(0)
         url = self.url_input.get()
         filename = self.filename_input.get()
-        result = product_loop(self.session, url, filename, self.update_progressbar)
+        result = await asyncio.to_thread(
+            product_loop,
+            self.session,
+            url,
+            filename,
+            self.update_progressbar,
+            asyncio.get_event_loop(),
+        )
 
-        self.output_field.configure(text=result)
+        self.output_field.configure(text=f"Utworzono plik {result}")
         self.after(100, self.label_updater)
 
     def label_updater(self):
@@ -102,47 +118,6 @@ class ProductModuleFrame(ctk.CTkFrame):
         )
         self.after(100, self.label_updater)
 
-    def update_progressbar(self, value):
-        self.progress_bar.set(value)
-        self.update_idletasks()
-
-
-def product_loop(
-    session: WebConnection,
-    url: str,
-    filename: str = "",
-    progress_function=None,
-) -> str:
-    if not filename:
-        filename = generate_filename(url)
-
-    with WriteSpreadsheet(filename) as sheet:
-        row = 1
-        for product_page in session.generate_product_pages(url):
-            try:
-                product = ProductData(product_page)
-            except AttributeError:
-                continue
-            product.assemble_description()
-
-            sheet.write_row(
-                row,
-                0,
-                [
-                    product.sku,
-                    product.net,
-                    product.srp,
-                    product.qty,
-                    product.description,
-                ]
-                + product.images,
-            )
-
-            if config["General"]["generate_txt_file"] == "True":
-                backup_text_file(product.sku, product.description, filename)
-
-            progress_function(row / session.product_number)
-
-            row += 1
-            sleep(0.5)
-        return "Gotowe!"
+    async def update_progressbar(self, current, total):
+        self.progress_bar.set(current / total)
+        self.output_field.configure(text=f"Pracuję... {current}/{total}")
