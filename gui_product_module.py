@@ -1,5 +1,6 @@
 import asyncio
 from configparser import ConfigParser
+from os import getcwd, startfile
 
 import customtkinter as ctk
 
@@ -19,6 +20,8 @@ class ProductModuleFrame(ctk.CTkFrame):
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
+
+        self.result = ""
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure((0, 1, 2, 3, 4, 5), minsize=40, weight=1)
@@ -91,6 +94,18 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.output_field.grid(
             row=5, column=0, padx=20, pady=(0, 20), columnspan=2, sticky="nsew"
         )
+
+        self.open_button = ctk.CTkButton(
+            self,
+            text="Otwórz",
+            width=40,
+            font=self.label_font,
+            corner_radius=None,
+            command=self.open_file,
+            state="disabled",
+        )
+        self.open_button.grid(row=5, column=1, padx=(0, 20), pady=(0, 20), sticky="nse")
+
         self.session = web_session
         self.after(100, self.label_updater)
 
@@ -99,7 +114,7 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.progress_bar.set(0)
         url = self.url_input.get()
         filename = self.filename_input.get()
-        result = await asyncio.to_thread(
+        self.result = await asyncio.to_thread(
             product_loop,
             self.session,
             url,
@@ -108,7 +123,8 @@ class ProductModuleFrame(ctk.CTkFrame):
             asyncio.get_event_loop(),
         )
 
-        self.output_field.configure(text=f"Utworzono plik {result}")
+        self.open_button.configure(state="normal")
+        self.output_field.configure(text=f"Utworzono plik {self.result}")
         self.after(100, self.label_updater)
 
     def label_updater(self):
@@ -121,3 +137,7 @@ class ProductModuleFrame(ctk.CTkFrame):
     async def update_progressbar(self, current, total):
         self.progress_bar.set(current / total)
         self.output_field.configure(text=f"Pracuję... {current}/{total}")
+
+    def open_file(self):
+        filepath = config["General"]["output_path"].replace(".", f"{getcwd()}")
+        startfile(f"{filepath}{self.result}")
