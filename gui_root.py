@@ -1,5 +1,6 @@
 import asyncio
 from configparser import ConfigParser
+from tkinter import Listbox, StringVar
 
 import customtkinter as ctk
 
@@ -31,9 +32,6 @@ class MainWindow(ctk.CTk):
 
         self.tabs = MyTabView(self)
         self.tabs.grid(row=0, column=0, padx=10, pady=10, sticky="nswe")
-
-        # self.frame1 = ProductModuleFrame(self.session, self)
-        # self.frame1.grid(row=1, column=0, padx=20, pady=10, sticky="new")
 
     async def show(self):
         self.open = True

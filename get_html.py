@@ -1,5 +1,6 @@
 import re
 from configparser import ConfigParser
+from datetime import datetime
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -52,3 +53,27 @@ class WebConnection:
                 "" if "http" in product else SITE + "/search.php?text="
             ) + product.strip("rcRC ").zfill(6)
             yield self._session.get(product_url, allow_redirects=True)
+
+    def get_news_list(self) -> list[dict[str]]:
+        """Generate list of first page news with dates and urls"""
+
+        newspage = self._session.get(SITE + "/news-pol.phtml")
+        souped_page = BeautifulSoup(newspage.content, "lxml")
+
+        news_list = []
+
+        for news_item in souped_page.find_all(class_="article_element_wrapper"):
+            news = {}
+            news["title"] = news_item.find(
+                "h3", class_="article_name_wrapper"
+            ).get_text()
+            news["url"] = (
+                news_item.find("h3", class_="article_name_wrapper")
+                .contents[0]
+                .get("href")
+            )
+            date = news_item.find("div", class_="date").get_text()
+            news["date"] = datetime.strptime(date, "%Y-%m-%d").strftime("%d-%m")
+            news_list.append(news)
+
+        return news_list

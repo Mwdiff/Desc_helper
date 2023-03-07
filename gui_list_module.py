@@ -32,7 +32,7 @@ class ListModuleFrame(ctk.CTkFrame):
             row=0, column=0, padx=20, pady=(20, 5), columnspan=2, sticky="nsw"
         )
 
-        self.list_input = ctk.CTkTextbox(self, height=95)
+        self.list_input = ctk.CTkTextbox(self, height=95, border_width=2)
         self.list_input.grid(
             row=1, column=0, padx=20, pady=(0, 10), columnspan=2, sticky="nsew"
         )
