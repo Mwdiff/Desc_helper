@@ -1,7 +1,7 @@
 import re
 from configparser import ConfigParser
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 from traceback import print_exception
 from types import TracebackType
 
@@ -11,7 +11,7 @@ config = ConfigParser()
 if not Path("./config.ini").exists():
     raise FileNotFoundError("config.ini file is missing!")
 config.read("config.ini")
-OUTPUT_PATH = config["General"]["output_path"]
+OUTPUT_PATH = str(Path.expanduser(PurePath(config["General"]["output_path"]))) + "/"
 
 
 class WriteSpreadsheet:

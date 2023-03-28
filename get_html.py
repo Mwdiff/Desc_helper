@@ -1,7 +1,9 @@
 import re
 from configparser import ConfigParser
 from datetime import datetime
+from os import getcwd
 from pathlib import Path
+from shutil import copyfileobj
 
 from bs4 import BeautifulSoup
 from requests import Response, Session
@@ -77,3 +79,19 @@ class WebConnection:
             news_list.append(news)
 
         return news_list
+
+    def get_article_image(self, filename: str) -> str:
+        r = self._session.get(
+            SITE + f"/data/include/img/news/{filename}.jpg", stream=True
+        )
+        if r.status_code == 200:
+            with open(f"./{filename}.jpg", "wb") as f:
+                r.raw.decode_content = True
+                copyfileobj(r.raw, f)
+        return f"{getcwd()}\{filename}.jpg"
+
+    def get_image_binary(self, url: str) -> bytes:
+        r = self._session.get(url, stream=True)
+        if r.status_code == 200:
+            # r.raw.decode_content = True
+            return r.raw

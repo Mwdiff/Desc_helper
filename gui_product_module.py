@@ -1,13 +1,21 @@
 import asyncio
 from configparser import ConfigParser
-from os import getcwd, startfile
-from tkinter import Listbox, StringVar
+from datetime import datetime
+from os import remove, startfile
 
 import customtkinter as ctk
+from windows_toasts import (
+    InteractableWindowsToaster,
+    ToastActivatedEventArgs,
+    ToastButton,
+    ToastDisplayImage,
+    ToastImageAndText1,
+)
 
 from desc_modules import product_loop
 from get_html import WebConnection
-from write_file import generate_filename
+from gui_listbox import CTkListbox
+from write_file import OUTPUT_PATH, generate_filename
 
 config = ConfigParser()
 config.read("config.ini")
@@ -46,7 +54,7 @@ class ProductModuleFrame(ctk.CTkFrame):
             text="Odśwież",
             width=50,
             font=self.label_font,
-            command=None,
+            command=self.news_refresh,
         )
         self.refresh_button.grid(
             row=0, column=1, padx=(0, 20), pady=(20, 10), sticky="nse"
@@ -88,7 +96,7 @@ class ProductModuleFrame(ctk.CTkFrame):
             text="Domyślna nazwa: ",
         )
         self.filename_label.grid(
-            row=4, column=0, padx=(150, 20), pady=(10, 5), sticky="nse"
+            row=4, column=0, padx=(150, 20), pady=(0, 5), sticky="nse"
         )
 
         self.filename_input = ctk.CTkEntry(
@@ -124,7 +132,7 @@ class ProductModuleFrame(ctk.CTkFrame):
             self, text_color="black", bg_color="gray", text=""
         )
         self.output_field.grid(
-            row=7, column=0, padx=20, pady=(10, 20), columnspan=2, sticky="nsew"
+            row=7, column=0, padx=(20, 80), pady=(10, 20), columnspan=2, sticky="nsew"
         )
 
         self.open_button = ctk.CTkButton(
@@ -139,9 +147,10 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.open_button.grid(
             row=7, column=1, padx=(0, 20), pady=(10, 20), sticky="nse"
         )
-
+        self.loop = asyncio.get_event_loop()
         self.session = web_session
         self.after(100, self.label_updater)
+        self.after(300000, self.auto_refresh)
 
     async def run(self):
         self.output_field.configure(text="Pracuję...")
@@ -173,7 +182,7 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.output_field.configure(text=f"Pracuję... {current}/{total}")
 
     def open_file(self):
-        filepath = config["General"]["output_path"].replace(".", f"{getcwd()}")
+        filepath = OUTPUT_PATH
         startfile(f"{filepath}{self.result}")
 
     def list_select(self, selection: tuple[int]):
@@ -183,49 +192,32 @@ class ProductModuleFrame(ctk.CTkFrame):
     def news_refresh(self):
         self.news_list = self.session.get_news_list()
         news_str = [f"{news['date']}   —   {news['title']}" for news in self.news_list]
-        self.news_list_listbox.configure(item_list=news_str)
-
-
-class CTkListbox(ctk.CTkScrollableFrame):
-    def __init__(
-        self,
-        master,
-        item_list,
-        on_select_function,
-        **kwargs,
-    ) -> None:
-        super().__init__(master, **kwargs)
-
-        listbox_style_dark = {
-            "bg": "gray20",
-            "fg": "gray84",
-            "selectbackground": "#1f538d",
-        }
-
-        listbox_style_light = {
-            "borderwidth": 5,
-            "relief": "flat",
-            "activestyle": "none",
-            "bg": "gray100",
-            "fg": "gray14",
-            "font": "'Roboto' 13 normal",
-            "selectbackground": "#3a7ebf",
-        }
-
-        self.items = StringVar(value=item_list)
-        self.listbox = Listbox(
-            self,
-            height=len(item_list),
-            listvariable=self.items,
-            width=int(master.cget("width")) - 20,
-            **listbox_style_light,
+        self.news_list_listbox.refresh(
+            item_list=news_str, notify_function=self.toast_notification
         )
-        self.listbox.pack(padx=10)
-
-        if ctk.get_appearance_mode() == "Dark":
-            self.listbox.configure(**listbox_style_dark)
-
-        self.listbox.bind(
-            "<<ListboxSelect>>",
-            lambda e: on_select_function(self.listbox.curselection()),
+        self.output_field.configure(
+            text=f"Zaktualizowano newsy: {datetime.now().strftime('%H:%M')}"
         )
+
+    def auto_refresh(self):
+        self.news_refresh()
+        self.after(300000, self.auto_refresh)
+
+    def toast_notification(self, index: int):
+        toaster = InteractableWindowsToaster("Dostawa")
+        newToast = ToastImageAndText1()
+        title = self.news_list[index]["title"]
+        url = self.news_list[index]["url"]
+
+        newToast.SetBody(title)
+        img = self.session.get_article_image(url.split("-")[-1].strip(".html"))
+        newToast.AddImage(
+            ToastDisplayImage.fromPath(
+                img,
+                circleCrop=False,
+                large=True,
+            )
+        )
+        newToast.AddAction(ToastButton("Ok"))
+        toaster.show_toast(newToast)
+        self.after(1000, remove, img)

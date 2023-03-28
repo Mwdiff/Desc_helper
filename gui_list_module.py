@@ -1,13 +1,12 @@
 import asyncio
 from configparser import ConfigParser
-from time import sleep
+from os import startfile
 
 import customtkinter as ctk
 
 from desc_modules import list_loop
 from get_html import WebConnection
-from product_data import ProductData
-from write_file import WriteSpreadsheet, backup_text_file, check_duplicate_name
+from write_file import OUTPUT_PATH, check_duplicate_name
 
 config = ConfigParser()
 config.read("config.ini")
@@ -16,6 +15,8 @@ config.read("config.ini")
 class ListModuleFrame(ctk.CTkFrame):
     def __init__(self, web_session: WebConnection, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+        self.result = ""
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure((0, 1, 2, 3, 4, 5), minsize=40, weight=1)
@@ -42,7 +43,7 @@ class ListModuleFrame(ctk.CTkFrame):
             font=self.label_font,
             text="Nazwa pliku:",
         )
-        self.input_label_2.grid(row=2, column=0, padx=20, pady=(0, 5), sticky="nsw")
+        self.input_label_2.grid(row=2, column=0, padx=20, pady=(10, 5), sticky="nsw")
 
         self.filename_label = ctk.CTkLabel(
             self,
@@ -60,7 +61,7 @@ class ListModuleFrame(ctk.CTkFrame):
             row=3,
             column=0,
             padx=20,
-            pady=(0, 20),
+            pady=(0, 10),
             columnspan=1,
             sticky="nswe",
         )
@@ -73,12 +74,12 @@ class ListModuleFrame(ctk.CTkFrame):
             command=lambda: asyncio.create_task(self.run()),
         )
         self.submit_button.grid(
-            row=3, column=1, padx=(0, 20), pady=(0, 20), sticky="nsew"
+            row=3, column=1, padx=(0, 20), pady=(0, 10), sticky="nsew"
         )
 
         self.progress_bar = ctk.CTkProgressBar(self, height=20)
         self.progress_bar.grid(
-            row=4, column=0, padx=20, pady=(0, 20), columnspan=2, sticky="nsew"
+            row=4, column=0, padx=20, pady=(10, 10), columnspan=2, sticky="nsew"
         )
         self.progress_bar.set(0)
 
@@ -86,8 +87,22 @@ class ListModuleFrame(ctk.CTkFrame):
             self, text_color="black", bg_color="gray", text=""
         )
         self.output_field.grid(
-            row=5, column=0, padx=20, pady=(0, 20), columnspan=2, sticky="nsew"
+            row=5, column=0, padx=(20, 80), pady=(10, 20), columnspan=2, sticky="nsew"
         )
+
+        self.open_button = ctk.CTkButton(
+            self,
+            text="Otwórz",
+            width=40,
+            font=self.label_font,
+            corner_radius=0,
+            command=self.open_file,
+            state="disabled",
+        )
+        self.open_button.grid(
+            row=5, column=1, padx=(0, 20), pady=(10, 20), sticky="nse"
+        )
+
         self.session = web_session
 
     async def run(self):
@@ -99,7 +114,7 @@ class ListModuleFrame(ctk.CTkFrame):
             if prod
         ]
         filename = self.filename_input.get()
-        result = await asyncio.to_thread(
+        self.result = await asyncio.to_thread(
             list_loop,
             self.session,
             product_list,
@@ -107,7 +122,8 @@ class ListModuleFrame(ctk.CTkFrame):
             self.update_progressbar,
             asyncio.get_event_loop(),
         )
-        self.output_field.configure(text=f"Utworzono plik {result}")
+        self.open_button.configure(state="normal")
+        self.output_field.configure(text=f"Utworzono plik {self.result}")
         self.filename_label.configure(
             text=f"Domyślna nazwa: '{check_duplicate_name('lista')}'"
         )
@@ -115,3 +131,7 @@ class ListModuleFrame(ctk.CTkFrame):
     async def update_progressbar(self, current, total):
         self.progress_bar.set(current / total)
         self.output_field.configure(text=f"Pracuję... {current}/{total}")
+
+    def open_file(self):
+        filepath = OUTPUT_PATH
+        startfile(f"{filepath}{self.result}")
