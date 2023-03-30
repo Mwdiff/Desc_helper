@@ -18,38 +18,37 @@ class ProductData:
     def __init__(self, page: Response) -> None:
         self._page = BeautifulSoup(page.content, "lxml")
         self._body = self._page.find(
-            "div", id="component_projector_longdescription_not"
+            "section", id="projector_longdescription"
         )
         self._gen_sku()
+        self._gen_ean()
         self._gen_net()
         self._gen_srp()
         self._gen_qty()
 
     def _gen_sku(self):
-        self.sku = self._page.find("div", itemprop="productID").text
+        self.sku = self._page.find("div", class_="product_codes").find(text="SKU").parent.next_sibling.get_text()
+
+    def _gen_ean(self):
+        self.ean = self._page.find("div", class_="product_codes").find(text="Kod EAN").parent.next_sibling.get_text()
 
     def _gen_net(self):
         self.net = (
-            self._page.find("span", id="price_net_val")
-            .get_text()
-            .strip(" PLN")
-            .replace(" ", "")
+            self._page.find("div", class_="projector_prices")
+        .find(class_="projector_prices__srp netto")
+        .get_text().strip("\t\n ()").replace("PLNnetto", "").replace(".",",")
         )
 
     def _gen_srp(self):
         self.srp = (
-            self._page.find("span", id="srp_val")
-            .get_text()
-            .strip(" PLN")
-            .replace(" ", "")
+            self._page.find(class_="projector_prices__srp black mr-1")
+            .get_text().strip("PLN").replace(".",",")
         )
 
     def _gen_qty(self) -> None:
         self.qty = (
-            self._page.find("div", class_="projector_avail")
-            .get_text()
-            .replace("szt.", "")
-            .strip()
+            self._page.find(class_="search_versions__status_amount_mw big_avail")
+        .get_text().strip(" szt.")
         )
 
     def initialize_description(self):

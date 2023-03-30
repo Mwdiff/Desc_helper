@@ -23,7 +23,7 @@ class WriteSpreadsheet:
         self.workbook = Workbook(f"{OUTPUT_PATH}{self.filename}.xlsx")
         self.worksheet = self.workbook.add_worksheet(self.filename)
         self.worksheet.write_row(
-            0, 0, ["sku", "Zakup netto", "SRP", "Ilość", "Opis", "Zdjęcia ->"]
+            0, 0, ["sku", "Zakup netto", "SRP", "EAN", "Ilość", "Opis", "Zdjęcia ->"]
         )
         return self.worksheet
 
@@ -33,24 +33,26 @@ class WriteSpreadsheet:
             write_log(exc_type, exc_value, exc_trace)
 
 
-def generate_filename(url: str) -> str:
-    filename = "arkusz"
-    try:
-        for match in re.search(
-            r"-(?:oferty|produktow)-(?>marki-)?([\w-]+)-news|search\.php\?text=([\w\-\+]+)|product-pol-\d+-(.{20})",
-            url,
-        ).group(1, 2, 3):
-            if match is not None:
-                filename = match.replace("+", "-")
-                continue
-    except AttributeError:
-        pass
+def generate_filename(filename: str) -> str:
+    if not filename:
+        name = "arkusz"
+    else:
+        try:
+            for match in re.search(
+                r"-(?:oferty|produktow)-(?>marki-)?([\w-]+)-news|search\.php\?text=([\w\-\+]+)|product-pol-\d+-(.{20})",
+                filename,
+            ).group(1, 2, 3):
+                if match is not None:
+                    name = match.replace("+", "-")
+                    continue
+        except AttributeError:
+            name = filename
 
-    filename += "-" + datetime.today().strftime("%d-%m")
+    name += "-" + datetime.today().strftime("%d-%m")
 
-    filename = check_duplicate_name(filename)
+    name = check_duplicate_name(name)
 
-    return filename
+    return name
 
 
 def check_duplicate_name(

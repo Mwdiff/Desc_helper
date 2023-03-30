@@ -29,6 +29,8 @@ class WebConnection:
     def generate_product_pages(self, url: str) -> Response:
         """Generates individual product html pages from supplied URL"""
 
+        self.producent = ""
+        
         page = self._session.get(url, allow_redirects=True)
         if "product-" in url or re.search(
             r"search\.php\?text=\d{5,13}", url, flags=re.IGNORECASE
@@ -36,14 +38,26 @@ class WebConnection:
             self.product_number = 1
             yield page
             return
-
+        
         souped_page = BeautifulSoup(page.content, "lxml")
-        products = souped_page.find_all("a", class_="product-name")
+        products = souped_page.find_all("div", class_="search_list__product")
+
+        for page in range(1,10):
+            newpage = self._session.get(url+f"&counter={page}", allow_redirects=True)
+            if newpage.status_code == 404:
+                break
+            new_souped_page = BeautifulSoup(newpage.content, "lxml")
+            more_products = new_souped_page.find_all("div", class_="search_list__product")
+            products += more_products
+        
         self.product_number = len(products)
+        try:
+            self.producent = souped_page.find(class_="filter_list_remove btn-regular").get_text()
+        except AttributeError:
+            pass
+        
         for product in products:
-            product_url = ("" if "http" in product.get("href") else SITE) + product.get(
-                "href"
-            )
+            product_url = ("" if "http" in product.find("a", class_="search_top__name").get("href") else SITE) + product.find("a", class_="search_top__name").get("href")
             yield self._session.get(product_url)
 
     def generate_from_list(self, list: list[str]) -> Response:
@@ -59,7 +73,7 @@ class WebConnection:
     def get_news_list(self) -> list[dict[str]]:
         """Generate list of first page news with dates and urls"""
 
-        newspage = self._session.get(SITE + "/news-pol.phtml")
+        newspage = self._session.get(SITE + "/Ostatnia-dostawa-cinfo-pol-77.html")
         souped_page = BeautifulSoup(newspage.content, "lxml")
 
         news_list = []
@@ -85,7 +99,7 @@ class WebConnection:
             SITE + f"/data/include/img/news/{filename}.jpg", stream=True
         )
         if r.status_code == 200:
-            with open(f"./{filename}.jpg", "wb") as f:
+            with open(f"{getcwd()}\{filename}.jpg", "wb") as f:
                 r.raw.decode_content = True
                 copyfileobj(r.raw, f)
         return f"{getcwd()}\{filename}.jpg"

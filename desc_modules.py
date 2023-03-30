@@ -1,6 +1,7 @@
 from asyncio import run_coroutine_threadsafe
 from configparser import ConfigParser
 from time import perf_counter
+from os import rename
 
 from requests import Response
 from xlsxwriter import worksheet
@@ -12,6 +13,7 @@ from write_file import (
     backup_text_file,
     check_duplicate_name,
     generate_filename,
+    OUTPUT_PATH,
 )
 
 config = ConfigParser()
@@ -26,10 +28,8 @@ def product_loop(
     loop=None,
 ) -> str:
     t_start = perf_counter()
-    if not filename:
-        filename = generate_filename(url)
 
-    with WriteSpreadsheet(filename) as sheet:
+    with WriteSpreadsheet("temp") as sheet:
         row = 1
         for product_page in session.generate_product_pages(url):
             write_row(sheet, product_page, row, filename)
@@ -40,6 +40,15 @@ def product_loop(
 
             row += 1
     t_end = perf_counter()
+    
+    if not filename:
+        name = url
+        if session.producent:
+            name = session.producent
+        filename = generate_filename(name)
+    
+    rename(OUTPUT_PATH+"temp.xlsx", OUTPUT_PATH+f"{filename}.xlsx")
+    
     print(f"Wykonano w czasie: {t_end-t_start}")
     return filename + ".xlsx"
 
@@ -99,6 +108,7 @@ def write_row(
             product.sku,
             product.net,
             product.srp,
+            product.ean,
             product.qty,
             product.description,
         ]

@@ -49,6 +49,11 @@ class ProductModuleFrame(ctk.CTkFrame):
             row=0, column=0, padx=20, pady=(20, 10), columnspan=2, sticky="nsw"
         )
 
+        self.notification_toggle = ctk.CTkCheckBox(self, text="Powiadomienia",
+                                                   width = 50)
+        self.notification_toggle.grid(row=0, column=1,
+                                      padx=(0, 130), pady=(20, 10), sticky="nse")
+
         self.refresh_button = ctk.CTkButton(
             self,
             text="Odśwież",
@@ -90,14 +95,14 @@ class ProductModuleFrame(ctk.CTkFrame):
         )
         self.input_label_2.grid(row=4, column=0, padx=20, pady=(10, 5), sticky="nsw")
 
-        self.filename_label = ctk.CTkLabel(
-            self,
-            font=self.label_font_light,
-            text="Domyślna nazwa: ",
-        )
-        self.filename_label.grid(
-            row=4, column=0, padx=(150, 20), pady=(0, 5), sticky="nse"
-        )
+##        self.filename_label = ctk.CTkLabel(
+##            self,
+##            font=self.label_font_light,
+##            text="Domyślna nazwa",
+##        )
+##        self.filename_label.grid(
+##            row=4, column=0, padx=(150, 20), pady=(0, 5), sticky="nse"
+##        )
 
         self.filename_input = ctk.CTkEntry(
             self, placeholder_text="Pozostaw puste dla nazwy domyślnej"
@@ -149,7 +154,7 @@ class ProductModuleFrame(ctk.CTkFrame):
         )
         self.loop = asyncio.get_event_loop()
         self.session = web_session
-        self.after(100, self.label_updater)
+##        self.after(100, self.label_updater)
         self.after(300000, self.auto_refresh)
 
     async def run(self):
@@ -168,14 +173,14 @@ class ProductModuleFrame(ctk.CTkFrame):
 
         self.open_button.configure(state="normal")
         self.output_field.configure(text=f"Utworzono plik {self.result}")
-        self.after(100, self.label_updater)
+##        self.after(100, self.label_updater)
 
-    def label_updater(self):
-        self.filename_label.configure(
-            True,
-            text=f"Domyślna nazwa: '{generate_filename(self.url_input.get())}'",
-        )
-        self.after(100, self.label_updater)
+##    def label_updater(self):
+##        self.filename_label.configure(
+##            True,
+##            text=f"Domyślna nazwa: '{generate_filename(self.url_input.get())}'",
+##        )
+##        self.after(100, self.label_updater)
 
     async def update_progressbar(self, current, total):
         self.progress_bar.set(current / total)
@@ -204,6 +209,8 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.after(300000, self.auto_refresh)
 
     def toast_notification(self, index: int):
+        if not self.notification_toggle.get():
+            return
         toaster = InteractableWindowsToaster("Dostawa")
         newToast = ToastImageAndText1()
         title = self.news_list[index]["title"]
