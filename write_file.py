@@ -34,19 +34,19 @@ class WriteSpreadsheet:
 
 
 def generate_filename(filename: str) -> str:
-    if not filename:
+    if not filename or "html" in filename:
         name = "arkusz"
-    else:
-        try:
-            for match in re.search(
-                r"-(?:oferty|produktow)-(?>marki-)?([\w-]+)-news|search\.php\?text=([\w\-\+]+)|product-pol-\d+-(.{20})",
-                filename,
-            ).group(1, 2, 3):
-                if match is not None:
-                    name = match.replace("+", "-")
-                    continue
-        except AttributeError:
-            name = filename
+
+    try:
+        for match in re.search(
+            r"-(?:oferty|produktow)-(?>marki-)?([\w-]+)-blog|search\.php\?text=([\w\-\+]+)|product-pol-\d+-(.{20})",
+            filename,
+        ).group(1, 2, 3):
+            if match is not None:
+                name = match.replace("+", "-")
+                continue
+    except AttributeError:
+        pass
 
     name += "-" + datetime.today().strftime("%d-%m")
 
