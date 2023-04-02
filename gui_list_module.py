@@ -1,6 +1,6 @@
 import asyncio
 from configparser import ConfigParser
-from os import startfile
+from os import remove, startfile
 
 import customtkinter as ctk
 
@@ -114,23 +114,38 @@ class ListModuleFrame(ctk.CTkFrame):
             if prod
         ]
         filename = self.filename_input.get()
-        self.result = await asyncio.to_thread(
-            list_loop,
-            self.session,
-            product_list,
-            filename,
-            self.update_progressbar,
-            asyncio.get_event_loop(),
+        task = asyncio.create_task(
+            list_loop(
+                self.session,
+                product_list,
+                filename,
+                self.update_progressbar,
+            )
         )
+        self.submit_button.configure(text="Anuluj", command=lambda: task.cancel())
+        try:
+            self.result = await task
+        except asyncio.CancelledError:
+            self.output_field.configure(text=f"Anulowano proces")
+            print(task.result())
+            remove(task.result())
+            return
+        finally:
+            self.submit_button.configure(
+                text="Generuj", command=lambda: asyncio.create_task(self.run())
+            )
+            self.progress_bar.set(0)
+            self.filename_label.configure(
+                text=f"Domyślna nazwa: '{check_duplicate_name('lista')}'"
+            )
+
         self.open_button.configure(state="normal")
         self.output_field.configure(text=f"Utworzono plik {self.result}")
-        self.filename_label.configure(
-            text=f"Domyślna nazwa: '{check_duplicate_name('lista')}'"
-        )
 
     async def update_progressbar(self, current, total):
         self.progress_bar.set(current / total)
         self.output_field.configure(text=f"Pracuję... {current}/{total}")
+        await asyncio.sleep(0)
 
     def open_file(self):
         filepath = OUTPUT_PATH

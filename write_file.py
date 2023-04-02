@@ -23,7 +23,7 @@ class WriteSpreadsheet:
         self.workbook = Workbook(f"{OUTPUT_PATH}{self.filename}.xlsx")
         self.worksheet = self.workbook.add_worksheet(self.filename)
         self.worksheet.write_row(
-            0, 0, ["sku", "Zakup netto", "SRP", "Ilość", "Opis", "Zdjęcia ->"]
+            0, 0, ["sku", "Zakup netto", "SRP", "EAN", "Ilość", "Opis", "Zdjęcia ->"]
         )
         return self.worksheet
 
@@ -33,18 +33,20 @@ class WriteSpreadsheet:
             write_log(exc_type, exc_value, exc_trace)
 
 
-def generate_filename(url: str) -> str:
-    filename = "arkusz"
-    try:
-        for match in re.search(
-            r"-(?:oferty|produktow)-(?>marki-)?([\w-]+)-news|search\.php\?text=([\w\-\+]+)|product-pol-\d+-(.{20})",
-            url,
-        ).group(1, 2, 3):
-            if match is not None:
-                filename = match.replace("+", "-")
-                continue
-    except AttributeError:
-        pass
+def generate_filename(filename: str, url: str = "") -> str:
+    if not filename:
+        filename = "arkusz"
+    if url:
+        try:
+            for match in re.search(
+                r"-(?:oferty|produktow)-(?>marki-)?([\w-]+)-blog|search\.php\?text=([\w\-\+]+)|product-pol-\d+-(.{20})",
+                filename,
+            ).group(1, 2, 3):
+                if match is not None:
+                    filename = match.replace("+", "-")
+                    continue
+        except AttributeError:
+            pass
 
     filename += "-" + datetime.today().strftime("%d-%m")
 

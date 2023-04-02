@@ -6,7 +6,7 @@ from get_html import SITE, WebConnection
 
 class ImageEdit:
     @staticmethod
-    def thumbnail_crop(cls, imagefile: bytes) -> None:
+    def thumbnail_crop(imagefile: bytes, path: str) -> None:
 
         # img = cv2.imread(filename)
         img = asarray(bytearray(imagefile.read()), dtype="uint8")
@@ -22,15 +22,15 @@ class ImageEdit:
         delta = int((w - h) / 2)
 
         if delta >= 0:  # landscape - w-bound
-            Y1 = y - delta
-            Y2 = Y1 + w
+            Y1 = y - delta - int(0.01 * w)
+            Y2 = Y1 + w + int(0.02 * w)
             X1 = x - int(0.01 * w)
             X2 = x + int(1.01 * w)
         else:  # portrait - h-bound
             Y1 = y - int(0.01 * h)
             Y2 = y + int(1.01 * h)
-            X1 = x + delta
-            X2 = X1 + h
+            X1 = x + delta - int(0.01 * h)
+            X2 = X1 + h + int(0.02 * h)
 
         crop = img[Y1:Y2, X1:X2]
 
@@ -42,15 +42,16 @@ class ImageEdit:
         # cv2.destroyAllWindows()
 
 
-# if __name__ == "__main__":
-#     from configparser import ConfigParser
+if __name__ == "__main__":
+    from configparser import ConfigParser
 
-#     config = ConfigParser()
-#     config.read("config.ini")
-#     s = WebConnection(config["Login"]["login_url"], dict(config["Login_data"]))
+    config = ConfigParser()
+    config.read("config.ini")
+    s = WebConnection(config["Login"]["login_url"], dict(config["Login_data"]))
 
-#     ImageEdit.thumbnail_crop(
-#         s.get_image_binary(
-#             SITE + "/pol_pl_Sluchawki-Soundpeats-TrueAir-2-biale-22576_3.jpg"
-#         )
-#     )
+    while True:
+        url = input("Adres obrazka: ")
+        path = "./miniatury/" + url.split("/")[-1]
+        print(path)
+
+        ImageEdit.thumbnail_crop(imagefile=s.get_image_binary(url), path=path)
