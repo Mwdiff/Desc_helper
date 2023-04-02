@@ -34,7 +34,7 @@ class ImageEdit:
 
         crop = img[Y1:Y2, X1:X2]
 
-        cv2.imwrite("testimage.jpg", crop)
+        cv2.imwrite("test_image.jpg", crop)
 
         # # Display the result
         # cv2.imshow("Result", crop)

@@ -3,7 +3,7 @@ __pycache__
 output/
 secret.py
 config.ini
-test*.py
+test*
 *.html
 *.txt
 *.xlsx
