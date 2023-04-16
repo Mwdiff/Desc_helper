@@ -4,7 +4,7 @@ from os import remove, startfile
 
 import customtkinter as ctk
 
-from desc_modules import list_loop
+from desc_modules import generate_data
 from get_html import WebConnection
 from write_file import OUTPUT_PATH, check_duplicate_name
 
@@ -13,10 +13,19 @@ config.read("config.ini")
 
 
 class ListModuleFrame(ctk.CTkFrame):
-    def __init__(self, web_session: WebConnection, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        web_session: WebConnection,
+        loop: asyncio.AbstractEventLoop = None,
+        *args,
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self.result = ""
+        self.loop = loop
+        self.session = web_session
+        self.task = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure((0, 1, 2, 3, 4, 5), minsize=40, weight=1)
@@ -24,6 +33,9 @@ class ListModuleFrame(ctk.CTkFrame):
         self.label_font = ctk.CTkFont(size=15, weight="bold")
         self.label_font_light = ctk.CTkFont(size=13)
 
+        self.load_elements()
+
+    def load_elements(self):
         self.input_label_1 = ctk.CTkLabel(
             self,
             font=self.label_font,
@@ -71,7 +83,7 @@ class ListModuleFrame(ctk.CTkFrame):
             text="Generuj",
             width=120,
             font=self.label_font,
-            command=lambda: asyncio.create_task(self.run()),
+            command=self.run,
         )
         self.submit_button.grid(
             row=3, column=1, padx=(0, 20), pady=(0, 10), sticky="nsew"
@@ -103,9 +115,7 @@ class ListModuleFrame(ctk.CTkFrame):
             row=5, column=1, padx=(0, 20), pady=(10, 20), sticky="nse"
         )
 
-        self.session = web_session
-
-    async def run(self):
+    def run(self):
         self.output_field.configure(text="Pracuję...")
         self.progress_bar.set(0)
         product_list = [
@@ -114,33 +124,30 @@ class ListModuleFrame(ctk.CTkFrame):
             if prod
         ]
         filename = self.filename_input.get()
-        task = asyncio.create_task(
-            list_loop(
-                self.session,
-                product_list,
-                filename,
-                self.update_progressbar,
-            )
-        )
-        self.submit_button.configure(text="Anuluj", command=lambda: task.cancel())
-        try:
-            self.result = await task
-        except asyncio.CancelledError:
-            self.output_field.configure(text=f"Anulowano proces")
-            print(task.result())
-            remove(task.result())
-            return
-        finally:
-            self.submit_button.configure(
-                text="Generuj", command=lambda: asyncio.create_task(self.run())
-            )
-            self.progress_bar.set(0)
-            self.filename_label.configure(
-                text=f"Domyślna nazwa: '{check_duplicate_name('lista')}'"
-            )
 
-        self.open_button.configure(state="normal")
-        self.output_field.configure(text=f"Utworzono plik {self.result}")
+        async def generate_file():
+            self.result = await generate_data(
+                self.session,
+                list=product_list,
+                filename=filename,
+                progress_function=self.update_progressbar,
+                mode="list",
+            )
+            self.submit_button.configure(text="Generuj", command=self.run)
+            self.progress_bar.set(0)
+            self.open_button.configure(state="normal")
+            self.output_field.configure(text=f"Utworzono plik {self.result}")
+
+        self.submit_button.configure(text="Anuluj", command=self.cancel_run)
+        self.task = self.loop.create_task(generate_file())
+
+    def cancel_run(self):
+        if self.task and not self.task.done():
+            self.task.cancel()
+            self.output_field.configure(text=f"Anulowano proces")
+            self.progress_bar.set(0)
+            remove(OUTPUT_PATH + "temp.xlsx")
+            self.submit_button.configure(text="Generuj", command=self.run)
 
     async def update_progressbar(self, current, total):
         self.progress_bar.set(current / total)

@@ -2,16 +2,18 @@ import asyncio
 from configparser import ConfigParser
 from datetime import datetime
 from os import remove, startfile
+from time import sleep
 
 import customtkinter as ctk
 from windows_toasts import (
     InteractableWindowsToaster,
+    ToastActivatedEventArgs,
     ToastButton,
     ToastDisplayImage,
     ToastImageAndText1,
 )
 
-from desc_modules import product_loop
+from desc_modules import generate_data
 from get_html import WebConnection
 from gui_listbox import CTkListbox
 from write_file import OUTPUT_PATH
@@ -24,12 +26,18 @@ class ProductModuleFrame(ctk.CTkFrame):
     def __init__(
         self,
         web_session: WebConnection,
+        loop: asyncio.AbstractEventLoop = None,
         *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
 
         self.result = ""
+        self.loop = loop
+        self.session = web_session
+        self.task = None
+        self.refresh_task = None
+        self.news_list = []
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure((3, 5), minsize=40, weight=1)
@@ -39,6 +47,11 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.label_font = ctk.CTkFont(size=15, weight="bold")
         self.label_font_light = ctk.CTkFont(size=13)
 
+        self.load_elements()
+        self.news_refresh()
+        self.after(300000, self.auto_refresh)
+
+    def load_elements(self):
         self.news_label = ctk.CTkLabel(
             self,
             font=self.label_font,
@@ -49,6 +62,7 @@ class ProductModuleFrame(ctk.CTkFrame):
         )
 
         self.notification_toggle = ctk.CTkCheckBox(self, text="Powiadomienia", width=50)
+        self.notification_toggle.select()
         self.notification_toggle.grid(
             row=0, column=1, padx=(0, 130), pady=(20, 10), sticky="nse"
         )
@@ -64,10 +78,8 @@ class ProductModuleFrame(ctk.CTkFrame):
             row=0, column=1, padx=(0, 20), pady=(20, 10), sticky="nse"
         )
 
-        self.news_list = web_session.get_news_list()
-        news_str = [f"{news['date']}   —   {news['title']}" for news in self.news_list]
         self.news_list_listbox = CTkListbox(
-            self, news_str, self.list_select, width=760, height=250
+            self, [], self.list_select, width=760, height=250
         )
         self.news_list_listbox.grid(
             row=1, column=0, padx=20, pady=(0, 10), columnspan=2, sticky="nsew"
@@ -94,15 +106,6 @@ class ProductModuleFrame(ctk.CTkFrame):
         )
         self.input_label_2.grid(row=4, column=0, padx=20, pady=(10, 5), sticky="nsw")
 
-        ##        self.filename_label = ctk.CTkLabel(
-        ##            self,
-        ##            font=self.label_font_light,
-        ##            text="Domyślna nazwa",
-        ##        )
-        ##        self.filename_label.grid(
-        ##            row=4, column=0, padx=(150, 20), pady=(0, 5), sticky="nse"
-        ##        )
-
         self.filename_input = ctk.CTkEntry(
             self, placeholder_text="Pozostaw puste dla nazwy domyślnej"
         )
@@ -120,10 +123,10 @@ class ProductModuleFrame(ctk.CTkFrame):
             text="Generuj",
             width=120,
             font=self.label_font,
-            command=lambda: asyncio.create_task(self.run()),
+            command=self.run,
         )
         self.submit_button.grid(
-            row=5, column=1, padx=(0, 20), pady=(0, 10), sticky="nsew"
+            row=5, column=1, padx=(0, 20), pady=(0, 10), sticky="nswe"
         )
 
         self.progress_bar = ctk.CTkProgressBar(self, height=20)
@@ -151,48 +154,36 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.open_button.grid(
             row=7, column=1, padx=(0, 20), pady=(10, 20), sticky="nse"
         )
-        self.loop = asyncio.get_event_loop()
-        self.session = web_session
-        ##        self.after(100, self.label_updater)
-        self.after(300000, self.auto_refresh)
 
-    async def run(self):
+    def run(self):
         self.output_field.configure(text="Pracuję...")
         self.progress_bar.set(0)
         url = self.url_input.get()
         filename = self.filename_input.get()
-        task = asyncio.create_task(
-            product_loop(
+
+        async def generate_file():
+            self.result = await generate_data(
                 self.session,
-                url,
-                filename,
-                self.update_progressbar,
+                url=url,
+                filename=filename,
+                progress_function=self.update_progressbar,
+                mode="product",
             )
-        )
-        self.submit_button.configure(text="Anuluj", command=lambda: task.cancel())
-        try:
-            self.result = await task
-        except asyncio.CancelledError:
-            self.output_field.configure(text=f"Anulowano proces")
-            remove(OUTPUT_PATH + "temp.xlsx")
-            return
-        finally:
-            self.submit_button.configure(
-                text="Generuj", command=lambda: asyncio.create_task(self.run())
-            )
+            self.submit_button.configure(text="Generuj", command=self.run)
             self.progress_bar.set(0)
+            self.open_button.configure(state="normal")
+            self.output_field.configure(text=f"Utworzono plik {self.result}")
 
-        self.open_button.configure(state="normal")
-        self.output_field.configure(text=f"Utworzono plik {self.result}")
+        self.submit_button.configure(text="Anuluj", command=self.cancel_run)
+        self.task = self.loop.create_task(generate_file())
 
-    ##        self.after(100, self.label_updater)
-
-    ##    def label_updater(self):
-    ##        self.filename_label.configure(
-    ##            True,
-    ##            text=f"Domyślna nazwa: '{generate_filename(self.url_input.get())}'",
-    ##        )
-    ##        self.after(100, self.label_updater)
+    def cancel_run(self):
+        if self.task and not self.task.done():
+            self.task.cancel()
+            self.output_field.configure(text=f"Anulowano proces")
+            self.progress_bar.set(0)
+            remove(OUTPUT_PATH + "temp.xlsx")
+            self.submit_button.configure(text="Generuj", command=self.run)
 
     async def update_progressbar(self, current, total):
         self.progress_bar.set(current / total)
@@ -207,8 +198,24 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.url_input.delete(0, "end")
         self.url_input.insert(0, self.news_list[selection[0]]["url"])
 
+    def news_initialize(self):
+        self.refresh_task = self.loop.create_task(self.session.get_news_list())
+        self.after(1000, self.news_refresh)
+
     def news_refresh(self):
-        self.news_list = self.session.get_news_list()
+        if self.refresh_task is None:
+            self.news_initialize()
+            self.refresh_button.configure(state="disabled")
+            self.output_field.configure(text=f"Aktualizuję newsy...")
+            return
+
+        if not self.refresh_task.done():
+            self.after(1000, self.news_refresh)
+            return
+        else:
+            self.news_list = self.refresh_task.result()
+            self.refresh_task = None
+
         news_str = [f"{news['date']}   —   {news['title']}" for news in self.news_list]
         self.news_list_listbox.refresh(
             item_list=news_str, notify_function=self.toast_notification
@@ -216,6 +223,7 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.output_field.configure(
             text=f"Zaktualizowano newsy: {datetime.now().strftime('%H:%M')}"
         )
+        self.refresh_button.configure(state="normal")
 
     def auto_refresh(self):
         self.news_refresh()
@@ -227,10 +235,14 @@ class ProductModuleFrame(ctk.CTkFrame):
         toaster = InteractableWindowsToaster("Dostawa")
         newToast = ToastImageAndText1()
         title = self.news_list[index]["title"]
-        url = self.news_list[index]["url"]
+        url = self.news_list[index]["icon"]
+
+        def activated_callback(activatedEventArgs: ToastActivatedEventArgs):
+            if activatedEventArgs.arguments == "open":
+                self.focus_force()
 
         newToast.SetBody(title)
-        img = self.session.get_article_image(url.split("-")[-1].strip(".html"))
+        img = self.session.get_article_image(url)
         newToast.AddImage(
             ToastDisplayImage.fromPath(
                 img,
@@ -238,6 +250,8 @@ class ProductModuleFrame(ctk.CTkFrame):
                 large=True,
             )
         )
-        newToast.AddAction(ToastButton("Ok"))
+        newToast.AddAction(ToastButton("Open", "open"))
+        newToast.AddAction(ToastButton("Ok", "ok"))
+        newToast.on_activated = activated_callback
         toaster.show_toast(newToast)
         self.after(1000, remove, img)

@@ -58,13 +58,16 @@ class CTkListbox(ctk.CTkScrollableFrame):
 
     def refresh(self, item_list, notify_function: Callable[[int], None] = None):
         new_added = set(item_list) - set(self.items)
+        if not self.items:
+            new_added = set()
+
         self.new = self.new | new_added
         self.items = item_list
 
         for article in new_added:
             notify_function(self.items.index(article))
             sleep(5)
-        
+
         self.listbox.configure(
             **self.listbox_style, listvariable=StringVar(value=self.items)
         )

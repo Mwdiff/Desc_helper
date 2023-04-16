@@ -8,6 +8,8 @@ from shutil import copyfileobj
 from bs4 import BeautifulSoup
 from requests import Response, Session
 
+from get_js_enabled import BrowserRequest
+
 config = ConfigParser()
 if not Path("./config.ini").exists():
     raise FileNotFoundError("config.ini file is missing!")
@@ -30,7 +32,7 @@ class WebConnection:
         """Generates individual product html pages from supplied URL"""
 
         self.producent = ""
-        
+
         page = self._session.get(url, allow_redirects=True)
         if "product-" in url or re.search(
             r"search\.php\?text=\d{5,13}", url, flags=re.IGNORECASE
@@ -38,26 +40,34 @@ class WebConnection:
             self.product_number = 1
             yield page
             return
-        
+
         souped_page = BeautifulSoup(page.content, "lxml")
         products = souped_page.find_all("div", class_="search_list__product")
 
-        for page in range(1,10):
-            newpage = self._session.get(url+f"&counter={page}", allow_redirects=True)
+        for page in range(1, 10):
+            newpage = self._session.get(url + f"&counter={page}", allow_redirects=True)
             if newpage.status_code == 404:
                 break
             new_souped_page = BeautifulSoup(newpage.content, "lxml")
-            more_products = new_souped_page.find_all("div", class_="search_list__product")
+            more_products = new_souped_page.find_all(
+                "div", class_="search_list__product"
+            )
             products += more_products
-        
+
         self.product_number = len(products)
         try:
-            self.producent = souped_page.find(class_="filter_list_remove btn-regular").get_text()
+            self.producent = souped_page.find(
+                class_="filter_list_remove btn-regular"
+            ).get_text()
         except AttributeError:
             pass
-        
+
         for product in products:
-            product_url = ("" if "http" in product.find("a", class_="search_top__name").get("href") else SITE) + product.find("a", class_="search_top__name").get("href")
+            product_url = (
+                ""
+                if "http" in product.find("a", class_="search_top__name").get("href")
+                else SITE
+            ) + product.find("a", class_="search_top__name").get("href")
             yield self._session.get(product_url)
 
     def generate_from_list(self, list: list[str]) -> Response:
@@ -70,33 +80,36 @@ class WebConnection:
             ) + product.strip("rcRC ").zfill(6)
             yield self._session.get(product_url, allow_redirects=True)
 
-    def get_news_list(self) -> list[dict[str]]:
+    async def get_news_list(self) -> list[dict[str]]:
         """Generate list of first page news with dates and urls"""
-
-        newspage = self._session.get(SITE + "/Ostatnia-dostawa-cinfo-pol-77.html")
-        souped_page = BeautifulSoup(newspage.content, "lxml")
-
+        async with BrowserRequest() as br:
+            newspage = await br.get_content_longwait(
+                SITE + "/Ostatnia-dostawa-cinfo-pol-77.html"
+            )
+            souped_page = BeautifulSoup(newspage, "lxml")
         news_list = []
 
-        for news_item in souped_page.find_all(class_="article_element_wrapper"):
+        for news_item in souped_page.find_all(class_="col-12 product_link"):
             news = {}
-            news["title"] = news_item.find(
-                "h3", class_="article_name_wrapper"
-            ).get_text()
-            news["url"] = (
-                news_item.find("h3", class_="article_name_wrapper")
-                .contents[0]
-                .get("href")
+            news["title"] = (
+                news_item.find("span", class_="producer__name")
+                .get_text()
+                .replace("marki", "marki ")
             )
-            date = news_item.find("div", class_="date").get_text()
-            news["date"] = datetime.strptime(date, "%Y-%m-%d").strftime("%d-%m")
+            news["url"] = SITE + news_item.get("href")
+            date = news_item.find("div", class_="product__date").get_text()
+            news["date"] = datetime.strptime(date, "%d.%m.%Y").strftime("%d-%m")
+            news["icon"] = (
+                news_item.find(class_="product__icon_2").contents[0].get("src")
+            )
             news_list.append(news)
-
         return news_list
 
-    def get_article_image(self, filename: str) -> str:
+    def get_article_image(self, url: str) -> str:
+        filename = url.split("/")[-1].strip("_1.webp")
         r = self._session.get(
-            SITE + f"/data/include/img/news/{filename}.jpg", stream=True
+            SITE + url,
+            stream=True,
         )
         if r.status_code == 200:
             with open(f"{getcwd()}\{filename}.jpg", "wb") as f:
