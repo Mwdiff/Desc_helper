@@ -1,15 +1,16 @@
+from asyncio import run
+
 import cv2
 from numpy import asarray
 
-from get_html import SITE, WebConnection
+from get_html_async import SITE, WebConnection
 
 
 class ImageEdit:
     @staticmethod
     def thumbnail_crop(imagefile: bytes, path: str) -> None:
-
         # img = cv2.imread(filename)
-        img = asarray(bytearray(imagefile.read()), dtype="uint8")
+        img = asarray(bytearray(imagefile), dtype="uint8")
         img = cv2.imdecode(img, cv2.IMREAD_COLOR)
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -34,7 +35,7 @@ class ImageEdit:
 
         crop = img[Y1:Y2, X1:X2]
 
-        cv2.imwrite("test_image.jpg", crop)
+        cv2.imwrite(path, crop)
 
         # # Display the result
         # cv2.imshow("Result", crop)
@@ -47,11 +48,16 @@ if __name__ == "__main__":
 
     config = ConfigParser()
     config.read("config.ini")
-    s = WebConnection(config["Login"]["login_url"], dict(config["Login_data"]))
 
-    while True:
-        url = input("Adres obrazka: ")
-        path = "./miniatury/" + url.split("/")[-1]
-        print(path)
+    async def main():
+        async with WebConnection(
+            config["Login"]["login_url"], dict(config["Login_data"])
+        ) as s:
+            while True:
+                url = input("Adres obrazka: ")
+                path = "./miniatury/" + url.split("/")[-1]
+                print(path)
+                imagefile = await s.get_image_binary(url)
+                ImageEdit.thumbnail_crop(imagefile, path=path)
 
-        ImageEdit.thumbnail_crop(imagefile=s.get_image_binary(url), path=path)
+    run(main())

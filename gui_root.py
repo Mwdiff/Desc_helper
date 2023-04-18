@@ -3,7 +3,7 @@ from configparser import ConfigParser
 
 import customtkinter as ctk
 
-from get_html import WebConnection
+from get_html_async import WebConnection
 from get_js_enabled import BrowserRequest
 from gui_list_module import ListModuleFrame
 from gui_product_module import ProductModuleFrame
@@ -13,12 +13,16 @@ config.read("config.ini")
 
 
 class MainWindow(ctk.CTk):
-    def __init__(self, session: WebConnection):
+    def __init__(self):
         super().__init__()
 
-        self.session = session
         self.loop = asyncio.get_event_loop_policy().new_event_loop()
         self.after(10, self.run_asyncio_loop)
+
+        self.session = WebConnection(self.loop)
+        self.loop.run_until_complete(
+            self.session.login(config["Login"]["login_url"], dict(config["Login_data"]))
+        )
 
         self.loop.create_task(BrowserRequest.create_browser_context())
 

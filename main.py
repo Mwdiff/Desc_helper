@@ -1,6 +1,7 @@
 #!C:\Users\hande\Documents\Python scripts\Desc_helper-master\desc_helper_venv\Scripts\python
 
-from get_html import WebConnection
+from asyncio import sleep
+
 from gui_root import MainWindow
 from write_file import *
 
@@ -9,12 +10,12 @@ config.read("config.ini")
 
 
 def main():
-    session = WebConnection(config["Login"]["login_url"], dict(config["Login_data"]))
-
-    window = MainWindow(session)
+    window = MainWindow()
 
     window.mainloop()
 
+    window.loop.run_until_complete(window.session.close())
+    window.loop.run_until_complete(sleep(0))
     window.loop.close()
 
 

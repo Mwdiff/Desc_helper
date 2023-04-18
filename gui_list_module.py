@@ -5,7 +5,7 @@ from os import remove, startfile
 import customtkinter as ctk
 
 from desc_modules import generate_data
-from get_html import WebConnection
+from get_html_async import WebConnection
 from write_file import OUTPUT_PATH, check_duplicate_name
 
 config = ConfigParser()

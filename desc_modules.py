@@ -3,10 +3,12 @@ from configparser import ConfigParser
 from os import rename
 from time import perf_counter
 
-from requests import Response
+from aiohttp import ClientResponse
+
+# from requests import Response
 from xlsxwriter import worksheet
 
-from get_html import WebConnection
+from get_html_async import WebConnection
 from product_data import ProductData
 from write_file import (
     OUTPUT_PATH,
@@ -32,15 +34,18 @@ async def generate_data(
 
     match mode:
         case "product":
-            generate = session.generate_product_pages(url)
+            generate = session.generate_product_pages
+            arg = url
+
         case "list":
-            generate = session.generate_from_list(list)
+            generate = session.generate_from_list
+            arg = list
 
     with WriteSpreadsheet("temp") as sheet:
         row = 1
         await asyncio.sleep(0)
-        for product_page in generate:
-            if "noproduct" in product_page.url:
+        async for product_page in generate(arg):
+            if "noproduct" in str(product_page.url):
                 print(f"Brak produktu: {product_page.url}")
                 row += 1
                 continue
@@ -73,46 +78,12 @@ async def generate_data(
     return filename + ".xlsx"
 
 
-# async def list_loop(
-#     session: WebConnection,
-#     lista: list[str],
-#     filename: str = "",
-#     progress_function=None,
-# ) -> str:
-#     t_start = perf_counter()
-#     if not filename:
-#         filename = "lista"
-#     filename = check_duplicate_name(filename)
-
-#     with WriteSpreadsheet(filename) as sheet:
-#         row = 1
-#         await asyncio.sleep(0)
-#         for product_page in session.generate_from_list(lista):
-#             if "noproduct" in product_page.url:
-#                 print(f"Brak produktu: {product_page.url}")
-#                 row += 1
-#                 continue
-
-#             await write_row(sheet, product_page, row, filename)
-
-#             if asyncio.current_task().cancelled():
-#                 print("cancelled")
-#                 return
-
-#             await progress_function(row, session.product_number)
-#             await asyncio.sleep(0)
-
-#             row += 1
-#     t_end = perf_counter()
-#     print(f"Wykonano w czasie: {t_end-t_start}")
-#     return filename + ".xlsx"
-
-
 async def write_row(
-    sheet: worksheet, product_page: Response, row: int, filename: str
+    sheet: worksheet, product_page: ClientResponse, row: int, filename: str
 ) -> None:
+    page_content = await product_page.content.read()
     try:
-        product = ProductData(product_page)
+        product = ProductData(page_content)
     except AttributeError:
         return
 

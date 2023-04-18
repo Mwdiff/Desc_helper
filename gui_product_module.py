@@ -14,7 +14,7 @@ from windows_toasts import (
 )
 
 from desc_modules import generate_data
-from get_html import WebConnection
+from get_html_async import WebConnection
 from gui_listbox import CTkListbox
 from write_file import OUTPUT_PATH
 
@@ -213,7 +213,15 @@ class ProductModuleFrame(ctk.CTkFrame):
             self.after(1000, self.news_refresh)
             return
         else:
-            self.news_list = self.refresh_task.result()
+            try:
+                self.news_list = self.refresh_task.result()
+            except Exception:
+                self.output_field.configure(
+                    text="BŁĄD: nie udało się pobrać aktualizacji!"
+                )
+                self.refresh_button.configure(state="normal")
+                self.refresh_task = None
+                return
             self.refresh_task = None
 
         news_str = [f"{news['date']}   —   {news['title']}" for news in self.news_list]

@@ -1,5 +1,6 @@
 __pycache__
 .vscode
+miniatury
 output/
 secret.py
 config.ini
@@ -8,3 +9,4 @@ test*
 *.txt
 *.xlsx
 logged_in.json
+_old_get_html.py
