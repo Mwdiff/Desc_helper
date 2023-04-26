@@ -138,6 +138,8 @@ class WebConnection:
             news["icon"] = (
                 news_item.find(class_="product__icon_2").contents[0].get("src")
             )
+            if "http" not in news["icon"]:
+                news["icon"] = SITE + news["icon"]
             news_list.append(news)
         return news_list
 

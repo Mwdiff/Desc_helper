@@ -64,6 +64,9 @@ class CTkListbox(ctk.CTkScrollableFrame):
         self.new = self.new | new_added
         self.items = item_list
 
+        #test
+        #notify_function(2)
+
         for article in new_added:
             notify_function(self.items.index(article))
             sleep(5)

@@ -19,7 +19,7 @@ class MainWindow(ctk.CTk):
         self.loop = asyncio.get_event_loop_policy().new_event_loop()
         self.after(10, self.run_asyncio_loop)
 
-        self.session = WebConnection(self.loop)
+        self.session = WebConnection(async_loop=self.loop)
         self.loop.run_until_complete(
             self.session.login(config["Login"]["login_url"], dict(config["Login_data"]))
         )

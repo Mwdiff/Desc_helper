@@ -146,8 +146,9 @@ class ListModuleFrame(ctk.CTkFrame):
             self.task.cancel()
             self.output_field.configure(text=f"Anulowano proces")
             self.progress_bar.set(0)
-            remove(OUTPUT_PATH + "temp.xlsx")
             self.submit_button.configure(text="Generuj", command=self.run)
+            remove(OUTPUT_PATH + "temp.xlsx")
+            
 
     async def update_progressbar(self, current, total):
         self.progress_bar.set(current / total)

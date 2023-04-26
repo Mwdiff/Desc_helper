@@ -137,7 +137,7 @@ class ProductData:
             {
                 ("" if "http" in image.get("src") else SITE) + image.get("src"): ""
                 for image in self._body.find_all("img")
-                if not re.match(r".*xiaomi_logo", image.get("src"), flags=re.IGNORECASE)
+                if image.get("src") and not re.match(r".*xiaomi_logo", image.get("src"), flags=re.IGNORECASE)
             }
         )
 

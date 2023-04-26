@@ -48,6 +48,9 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.label_font_light = ctk.CTkFont(size=13)
 
         self.load_elements()
+
+        # Automatic news refreshing toggles
+        self.auto_refresh_toggle = True
         self.news_refresh()
         self.after(300000, self.auto_refresh)
 
@@ -182,8 +185,8 @@ class ProductModuleFrame(ctk.CTkFrame):
             self.task.cancel()
             self.output_field.configure(text=f"Anulowano proces")
             self.progress_bar.set(0)
-            remove(OUTPUT_PATH + "temp.xlsx")
             self.submit_button.configure(text="Generuj", command=self.run)
+            remove(OUTPUT_PATH + "temp.xlsx")
 
     async def update_progressbar(self, current, total):
         self.progress_bar.set(current / total)
@@ -199,6 +202,9 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.url_input.insert(0, self.news_list[selection[0]]["url"])
 
     def news_initialize(self):
+        self.auto_refresh_toggle = True
+##        print(asyncio.current_task(loop=self.loop))
+##        if asyncio.current_task(loop=self.loop) is None:
         self.refresh_task = self.loop.create_task(self.session.get_news_list())
         self.after(1000, self.news_refresh)
 
@@ -234,6 +240,8 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.refresh_button.configure(state="normal")
 
     def auto_refresh(self):
+##        print(asyncio.current_task(loop=self.loop))
+##        if asyncio.current_task(loop=self.loop) is None:
         self.news_refresh()
         self.after(300000, self.auto_refresh)
 
@@ -250,14 +258,22 @@ class ProductModuleFrame(ctk.CTkFrame):
                 self.focus_force()
 
         newToast.SetBody(title)
-        img = self.session.get_article_image(url)
-        newToast.AddImage(
-            ToastDisplayImage.fromPath(
-                img,
-                circleCrop=False,
-                large=True,
+        #print(url)
+        try:
+            img = self.loop.run_until_complete(self.session.get_article_image(url))
+            #print(img)
+        except Exception:
+            img = None
+
+        if img is not None:
+            newToast.AddImage(
+                ToastDisplayImage.fromPath(
+                    img,
+                    circleCrop=False,
+                    large=True,
+                )
             )
-        )
+            
         newToast.AddAction(ToastButton("Open", "open"))
         newToast.AddAction(ToastButton("Ok", "ok"))
         newToast.on_activated = activated_callback
