@@ -40,7 +40,7 @@ class BrowserRequest:
             write_log(exc_type, exc_value, exc_trace)
 
     async def get_content_longwait(self, url: str):
-        await self.page.goto(url, timeout=60000, wait_until="networkidle")
+        await self.page.goto(url, timeout=100000, wait_until="networkidle")
         html = await self.page.content()
         return html
 

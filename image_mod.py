@@ -23,16 +23,16 @@ class ImageEdit:
         delta = int((w - h) / 2)
 
         if delta >= 0:  # landscape - w-bound
-            Y1 = y - delta - int(0.01 * w)
-            Y2 = Y1 + w + int(0.02 * w)
-            X1 = x - int(0.01 * w)
-            X2 = x + int(1.01 * w)
+            Y1 = max(y - delta - int(0.005 * w), 0)
+            Y2 = Y1 + w + int(0.01 * w)
+            X1 = max(x - int(0.005 * w), 0)
+            X2 = x + int(1.005 * w)
         else:  # portrait - h-bound
-            Y1 = y - int(0.01 * h)
-            Y2 = y + int(1.01 * h)
-            X1 = x + delta - int(0.01 * h)
-            X2 = X1 + h + int(0.02 * h)
-
+            Y1 = max(y - int(0.005 * h), 0)
+            Y2 = y + int(1.005 * h)
+            X1 = max(x + delta - int(0.005 * h), 0)
+            X2 = X1 + h + int(0.01 * h)
+        
         crop = img[Y1:Y2, X1:X2]
 
         cv2.imwrite(path, crop)

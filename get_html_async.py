@@ -73,7 +73,8 @@ class WebConnection:
 
             for page_number in range(1, 10):
                 async with self._session.get(
-                    url + f"&counter={page_number}", allow_redirects=True
+                    url + ("&" if "?" in url else "?")
+                    + f"counter={page_number}", allow_redirects=True
                 ) as newpage:
                     if newpage.status == 404:
                         break
@@ -83,9 +84,17 @@ class WebConnection:
                     more_products = new_souped_page.find_all(
                         "div", class_="search_list__product"
                     )
+                    if more_products[0] == products[0]:
+                        break
                     products += more_products
 
+
             self.product_number = len(products)
+
+            if config["General"]["print_sku"] == "True":
+                for product in products:
+                    print(product.find(class_="search_top__param_value").get_text(), end=";")
+            
             try:
                 self.producent = souped_page.find(
                     class_="filter_list_remove btn-regular"
