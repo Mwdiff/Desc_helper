@@ -18,6 +18,11 @@ if not Path("./config.ini").exists():
     raise FileNotFoundError("config.ini file is missing!")
 config.read("config.ini")
 SITE = config["General"]["site"]
+HEADERS = {
+    "Accept-Language": "pl,en-US;q=0.7,en;q=0.3",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
+}
 
 
 class WebConnection:
@@ -29,7 +34,7 @@ class WebConnection:
         login_data: dict[str:str] = {},
         async_loop: AbstractEventLoop = None,
     ) -> None:
-        self._session = ClientSession(loop=async_loop)
+        self._session = ClientSession(loop=async_loop, headers=HEADERS)
         self._login_url = login_url
         self._login_data = login_data
 
@@ -73,8 +78,8 @@ class WebConnection:
 
             for page_number in range(1, 10):
                 async with self._session.get(
-                    url + ("&" if "?" in url else "?")
-                    + f"counter={page_number}", allow_redirects=True
+                    url + ("&" if "?" in url else "?") + f"counter={page_number}",
+                    allow_redirects=True,
                 ) as newpage:
                     if newpage.status == 404:
                         break
@@ -88,13 +93,15 @@ class WebConnection:
                         break
                     products += more_products
 
-
             self.product_number = len(products)
 
             if config["General"]["print_sku"] == "True":
                 for product in products:
-                    print(product.find(class_="search_top__param_value").get_text(), end=";")
-            
+                    print(
+                        product.find(class_="search_top__param_value").get_text(),
+                        end=";",
+                    )
+
             try:
                 self.producent = souped_page.find(
                     class_="filter_list_remove btn-regular"

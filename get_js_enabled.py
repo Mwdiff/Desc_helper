@@ -4,6 +4,7 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
+from get_html_async import HEADERS
 from write_file import write_log
 
 config = ConfigParser()
@@ -46,7 +47,7 @@ class BrowserRequest:
 
     @classmethod
     async def _context_login(cls, browser):
-        context = await browser.new_context()
+        context = await browser.new_context(extra_http_headers=HEADERS)
 
         page = await context.new_page()
         await page.goto(SITE + "/signin.php")
