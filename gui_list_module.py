@@ -120,7 +120,7 @@ class ListModuleFrame(ctk.CTkFrame):
         self.progress_bar.set(0)
         product_list = [
             prod.strip("rcRC ").zfill(6)
-            for prod in self.list_input.get("0.0", "end").replace("\n", "").split(",")
+            for prod in self.list_input.get("0.0", "end").replace("\n", "").replace(",", ";").replace("|", ";").split(";")
             if prod
         ]
         filename = self.filename_input.get()

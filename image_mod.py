@@ -57,7 +57,10 @@ if __name__ == "__main__":
                 url = input("Adres obrazka: ")
                 path = "./miniatury/" + url.split("/")[-1]
                 print(path)
-                imagefile = await s.get_image_binary(url)
-                ImageEdit.thumbnail_crop(imagefile, path=path)
+                try:
+                    imagefile = await s.get_image_binary(url)
+                    ImageEdit.thumbnail_crop(imagefile, path=path)
+                except Exception as X:
+                    print(f"Błąd: {X}")
 
     run(main())

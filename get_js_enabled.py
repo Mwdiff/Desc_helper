@@ -4,13 +4,16 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
-from get_html_async import HEADERS
 from write_file import write_log
 
 config = ConfigParser()
 config.read("config.ini")
 SITE = config["General"]["site"]
-
+HEADERS = {
+    "Accept-Language": "pl,en-US;q=0.7,en;q=0.3",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
+}
 
 class BrowserRequest:
     """Creates async context manager for Playwright chromium browser. Use obj.goto(url, wait_until="networkidle")"""
