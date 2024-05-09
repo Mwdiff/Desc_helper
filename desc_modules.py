@@ -102,10 +102,10 @@ async def write_row(
         row,
         0,
         [
-            product.sku,
+            product.ean,
             product.net,
             product.srp,
-            product.ean,
+            product.prodno,
             product.qty,
             product.description,
         ]

@@ -10,7 +10,7 @@ from windows_toasts import (
     ToastActivatedEventArgs,
     ToastButton,
     ToastDisplayImage,
-    ToastImageAndText1,
+    Toast,
 )
 
 from desc_modules import generate_data
@@ -249,7 +249,7 @@ class ProductModuleFrame(ctk.CTkFrame):
         if not self.notification_toggle.get():
             return
         toaster = InteractableWindowsToaster("Dostawa")
-        newToast = ToastImageAndText1()
+        newToast = Toast()
         title = self.news_list[index]["title"]
         url = self.news_list[index]["icon"]
 
@@ -257,7 +257,7 @@ class ProductModuleFrame(ctk.CTkFrame):
             if activatedEventArgs.arguments == "open":
                 self.focus_force()
 
-        newToast.SetBody(title)
+        newToast.text_fields = title
         #print(url)
         try:
             img = self.loop.run_until_complete(self.session.get_article_image(url))

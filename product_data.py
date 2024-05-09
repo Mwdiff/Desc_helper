@@ -22,6 +22,7 @@ class ProductData:
         self._gen_net()
         self._gen_srp()
         self._gen_qty()
+        self._gen_prodno()
 
     def _gen_sku(self):
         self.sku = (
@@ -60,6 +61,13 @@ class ProductData:
             self._page.find(class_="search_versions__status_amount_mw big_avail")
             .get_text()
             .strip(" szt.")
+        )
+        
+    def _gen_prodno(self) -> None:
+        self.prodno = (
+            self._page.find("div", class_="product_codes")
+            .find(text="Kod producenta")
+            .parent.next_sibling.get_text()
         )
 
     def initialize_description(self):
@@ -135,7 +143,7 @@ class ProductData:
     def _gen_image_list(self) -> None:
         self.images = list(
             {
-                ("" if "http" in image.get("src") else SITE) + image.get("src"): ""
+                re.sub(r"\?v=\d+","",image.get("src").strip(SITE)): ""
                 for image in self._body.find_all("img")
                 if image.get("src") and not re.match(r".*xiaomi_logo", image.get("src"), flags=re.IGNORECASE)
             }
@@ -158,7 +166,7 @@ class ProductData:
                 list = "<h2>" + header + ("" if ":" in header else ":") + "</h2>\n"
                 break
 
-        self.contents = list + str(content)
+        self.contents = list + str(content).replace(' class="list-disc pl-5"', "").replace(' style="text-align:justify"', "")
 
     def _gen_specification(self) -> None:
         try:
@@ -174,12 +182,13 @@ class ProductData:
                 spec_str += str(table) + "\n"
             regex = {
                 "": re.compile(
-                    r"(\s?style=\"[^\>]+\")|(</?span[^>]*>)|(</?td[^>]*>)|<br>|<p>"
+                    r"(\s?style=\"[^\>]+\")|(</?span[^>]*>)|(</?td[^>]*>)|<br>|<p>|<tr><th>\s*</th>\s*(<td></td>)?</tr>"
                 ),
                 "ul": re.compile("tbody"),
-                "<\g<1>li>": re.compile(r"<(/?)tr[^>]*>"),
-                "<\g<1>\g<2>b>": re.compile(r"<(/?)th[^>]*>|<(/?)strong[^>]*>"),
+                r"<\g<1>li>": re.compile(r"<(/?)tr[^>]*>"),
+                r"<\g<1>\g<2>b>": re.compile(r"<(/?)th[^>]*>|<(/?)strong[^>]*>"),
                 "; ": re.compile(r"</p>"),
+                r": </b>": re.compile(r"\s*:?\s*</b>"),
             }
 
             for substitute, regex in regex.items():
@@ -189,38 +198,36 @@ class ProductData:
 
     def assemble_description(self) -> None:
         style_template_text = Template(
-            """<section class="section">
-                        <div class="item item-12">
-                            <section class="text-item">
+            """[iai:allegro_description_section_text-begin]
                                 <h2>$title</h2><p>$section</p>
-                            </section>
-                        </div>
-                    </section>\n"""
+            [iai:allegro_description_section_text-end]\n"""
         )
 
         style_template_img = Template(
-            """<section class="section">
-                    <div class="item item-12">
-                        <section class="image-item">
-                            <img src="$img" />
-                        </section>
-                    </div>
-                </section>\n"""
+            """[iai:allegro_description_section_photo_list-begin]
+                            [iai:photo_url($img)]
+               [iai:allegro_description_section_photo_list-end]\n"""
         )
 
         # pierwsza sekcja specyfikacja + zawartość
-        description = ""
+        #description = ""
 
-        if self.specification or self.contents:
-            description += """<section class="section">
-                            <div class="item item-12">
-                                <section class="text-item">
-                                    {}
-                                </section>
-                            </div>
-                        </section>\n""".format(
-                "\n".join([self.specification, self.contents])
-            )
+        #if self.specification or self.contents:
+        #    description += """[iai:allegro_description_section_text-begin]
+        #                            {}
+        #                      [iai:allegro_description_section_text-end]\n""".format(
+        #        "\n".join([self.specification, self.contents])
+        #    )
+        
+        #if self.specification or self.contents:
+        description = """[iai:allegro_description_section_text_and_photo-begin]
+                            <p><b>Producent:</b> [iai:product_producer_name]</p>
+                            <p><b>Kod Produktu:</b> [iai:product_code_producer]</p>
+                                {}
+                            [iai:product_photos_large_1]
+                          [iai:allegro_description_section_text_and_photo-end]\n""".format(
+            "\n".join([self.specification, self.contents])
+        )
 
         # kolejne sekcje nagłówek+opis / zdjęcie naprzemiennie
         for t, i, d in zip_longest(
@@ -232,7 +239,10 @@ class ProductData:
                 + style_template_img.substitute(img=i, title=t, section=d)
             )
 
-        self.description = description
+        self.description = """[iai:allegro_description_section_text-end][iai:allegro_description_section_text_and_photo-begin]
+                            <h1>[iai:product_name_auction]</h1>[iai:product_photos_large_1]
+                            [iai:allegro_description_section_text_and_photo-end]""" + re.sub(r"\[iai\:photo_url\(assets[^)]*\)\]","[iai:product_photos_large_1]",description) + \
+                            """[iai:allegro_description_section_photo_list-begin][iai:product_photos_large_1][iai:allegro_description_section_photo_list-end][iai:allegro_description_section_text-begin]"""
 
 
 def header_filter(title):

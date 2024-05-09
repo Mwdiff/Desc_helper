@@ -4,7 +4,6 @@ miniatury/
 output/
 dist/
 build/
-secret.py
 config.ini
 test*
 *.spec
@@ -15,3 +14,4 @@ logged_in.json
 _old_get_html.py
 *.ps1
 build.spec
+*.code-workspace

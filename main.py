@@ -1,9 +1,7 @@
-#!C:\Users\hande\Documents\Python scripts\Desc_helper-master\desc_helper_venv\Scripts\python
-
 from asyncio import sleep
 
 from gui_root import MainWindow
-from write_file import *
+from write_file import ConfigParser
 
 config = ConfigParser()
 config.read("config.ini")
