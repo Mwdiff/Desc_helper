@@ -3,18 +3,21 @@ import re
 # from requests import Response, Session
 from aiohttp import ClientError, ClientResponse, ClientSession
 from bs4 import BeautifulSoup
+import requests
 
 from write_file import write_log
 
 
 class ReplaceImg:
     @staticmethod
-    async def replaceimg(ean: str, imgs: list[str]) -> dict[str:str]:
+    def replaceimg(ean: str, imgs: list[str]) -> dict[str:str]:
         payload = list(
             {img_url + ">|<" + ean: "" for img_url in imgs if "assets" in img_url}
         )
-        data = {imgs: payload}
-        page_content = await ReplaceImg.get_new_urls(data)
+        data = {"imgs": payload}
+        print(payload) #test
+        print("\n\n")
+        page_content = ReplaceImg.get_new_urls(data, ean)
         if not page_content:
             return {}
 
@@ -26,24 +29,33 @@ class ReplaceImg:
             .get("href")
             for img in sections
         }
+        print(replace_table) #test
+        print("\n\n")
         return replace_table
 
     @staticmethod
-    async def get_new_urls(data) -> ClientResponse:
+    def get_new_urls(data, ean) -> ClientResponse:
+        s = requests.Session()
+        r = s.post("http://10.0.69.227:54390",
+                data={"textarea":ean},
+                headers={
+                    "Origin": "http://10.0.69.227:54390",
+                    "Referer": "http://10.0.69.227:54390",
+                })
+        print(r.status_code, "\n", r.text)
         try:
-            with ClientSession() as session:
-                response = await session.request(
-                    "POST",
-                    "10.0.69.227:54390",
-                    data=data,
-                    headers={
-                        "Origin": "http://10.0.69.227:54390",
-                        "Referer": "http://10.0.69.227:54390/multi",
-                    },
-                )
-            if response.ok:
-                return response.content.read()
-        except ClientError as e:
+            response = s.post(
+                "http://10.0.69.227:54390",
+                data=data,
+                headers={
+                    "Origin": "http://10.0.69.227:54390",
+                    "Referer": "http://10.0.69.227:54390/multi",
+                },
+            )
+            print(response.status_code, "\n", response.text)
+            if response.status_code<400:
+                return response.content()
+        except ConnectionError as e:
             write_log(exc_type=e, exc_trace=e.__traceback__)
             print(e)
 

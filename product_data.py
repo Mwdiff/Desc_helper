@@ -1,4 +1,5 @@
 import re
+from asyncio import run
 from configparser import ConfigParser
 from itertools import zip_longest
 from pathlib import Path
@@ -143,16 +144,22 @@ class ProductData:
         return self.description_text
 
     def _gen_image_list(self) -> None:
-        images = (
+        images = [
             re.sub(r"\?v=\d+", "", image.get("src").strip(SITE))
             for image in self._body.find_all("img")
             if image.get("src")
             and not re.match(r".*xiaomi_logo", image.get("src"), flags=re.IGNORECASE)
-        )
+        ]
+        print(images) #test
+        print("\n\n")
         img_replace = ReplaceImg.replaceimg(self.ean, images)
+        print(images) #test
+        print("\n\n")
         for i, img in enumerate(images):
             if img in img_replace:
                 images[i] = img_replace[img]
+        print(images) #test
+        print("\n\n")
         self.images = images
 
     def _gen_contents(self) -> None:
