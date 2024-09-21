@@ -17,12 +17,15 @@ class ProductData:
     def __init__(self, page_content: bytes) -> None:
         self._page = BeautifulSoup(page_content, "lxml")
         self._body = self._page.find("section", id="projector_longdescription")
+        if self._body.find("section", id="projector_longdescription"):
+            self._body = self._body.find("section", id="projector_longdescription")
         self._gen_sku()
         self._gen_ean()
         self._gen_net()
         self._gen_srp()
         self._gen_qty()
         self._gen_prodno()
+        self._gen_brand()
 
     def _gen_sku(self):
         self.sku = (
@@ -69,6 +72,9 @@ class ProductData:
             .find(text="Kod producenta")
             .parent.next_sibling.get_text()
         )
+        
+    def _gen_brand(self) -> None:
+        self.brand = re.sub(r"/firm-pol-\d+-","",self._page.find("a", class_="firm_logo").get("href").split(".")[0])    
 
     def initialize_description(self):
         if self._body is None:
@@ -108,7 +114,7 @@ class ProductData:
             description_items = [
                 section.get_text(strip=True)
                 for section in element
-                if section.get_text(strip=True)
+                if len(section.get_text(strip=True)) > 50
                 and section.name not in ["style", "ul", "table"]
                 and "iai_bottom" not in section.get_attribute_list("class")
                 and "table-wrapper" not in section.get_attribute_list("class")
@@ -166,7 +172,7 @@ class ProductData:
                 list = "<h2>" + header + ("" if ":" in header else ":") + "</h2>\n"
                 break
 
-        self.contents = list + str(content).replace(' class="list-disc pl-5"', "").replace(' style="text-align:justify"', "")
+        self.contents = list + str(content).replace(r' class="list-disc pl-5"', "").replace(r' style="text-align:justify"', "")
 
     def _gen_specification(self) -> None:
         try:
@@ -224,6 +230,7 @@ class ProductData:
                             <p><b>Producent:</b> [iai:product_producer_name]</p>
                             <p><b>Kod Produktu:</b> [iai:product_code_producer]</p>
                                 {}
+                            <p><b>➡️Materiał wideo prezentujący produkt: </b></p>
                             [iai:product_photos_large_1]
                           [iai:allegro_description_section_text_and_photo-end]\n""".format(
             "\n".join([self.specification, self.contents])
@@ -240,10 +247,12 @@ class ProductData:
             )
 
         self.description = """[iai:allegro_description_section_text-end][iai:allegro_description_section_text_and_photo-begin]
-                            <h1>[iai:product_name_auction]</h1>[iai:product_photos_large_1]
-                            [iai:allegro_description_section_text_and_photo-end]""" + re.sub(r"\[iai\:photo_url\(assets[^)]*\)\]","[iai:product_photos_large_1]",description) + \
-                            """[iai:allegro_description_section_photo_list-begin][iai:product_photos_large_1][iai:allegro_description_section_photo_list-end][iai:allegro_description_section_text-begin]"""
+                            <h1>[iai:product_name_auction]</h1>[iai:photo_url(/data/include/cms/logo_retail/{}.png)] 
+                            [iai:allegro_description_section_text_and_photo-end]""".format(self.brand) + \
+                            description + \
+                            """[iai:allegro_description_section_photo_list-begin][iai:photo_url(/data/include/cms/logo_retail/{}.png)][iai:allegro_description_section_photo_list-end][iai:allegro_description_section_text-begin]""".format(self.brand)
 
+##re.sub(r"\[iai\:photo_url\(assets[^)]*\)\]","[iai:product_photos_large_1]",description) + 
 
 def header_filter(title):
     if title.name in [

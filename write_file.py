@@ -23,7 +23,7 @@ class WriteSpreadsheet:
         self.workbook = Workbook(f"{OUTPUT_PATH}{self.filename}.xlsx")
         self.worksheet = self.workbook.add_worksheet(self.filename)
         self.worksheet.write_row(
-            0, 0, ["EAN", "Zakup netto", "SRP", "Kod", "Ilość", "Opis", "Zdjęcia ->"]
+            0, 0, ["EAN", "Zakup netto", "SRP", "Kod","Marka", "Ilość", "Opis"]
         )
         return self.worksheet
 

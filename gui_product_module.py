@@ -3,6 +3,7 @@ from configparser import ConfigParser
 from datetime import datetime
 from os import remove, startfile
 from time import sleep
+from pathlib import Path
 
 import customtkinter as ctk
 from windows_toasts import (
@@ -194,8 +195,8 @@ class ProductModuleFrame(ctk.CTkFrame):
         await asyncio.sleep(0)
 
     def open_file(self):
-        filepath = OUTPUT_PATH
-        startfile(f"{filepath}{self.result}")
+        filepath = Path(OUTPUT_PATH)
+        startfile(filepath/self.result)
 
     def list_select(self, selection: tuple[int]):
         self.url_input.delete(0, "end")

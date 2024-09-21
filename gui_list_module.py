@@ -1,6 +1,7 @@
 import asyncio
 from configparser import ConfigParser
 from os import remove, startfile
+from pathlib import Path
 
 import customtkinter as ctk
 
@@ -120,7 +121,7 @@ class ListModuleFrame(ctk.CTkFrame):
         self.progress_bar.set(0)
         product_list = [
             prod.strip("rcRC ").zfill(6)
-            for prod in self.list_input.get("0.0", "end").replace("\n", "").replace(",", ";").replace("|", ";").split(";")
+            for prod in self.list_input.get("0.0", "end").replace("\t", ";").replace(" ", ";").replace("\n", ";").replace(",", ";").replace("|", ";").split(";")
             if prod
         ]
         filename = self.filename_input.get()
@@ -156,5 +157,5 @@ class ListModuleFrame(ctk.CTkFrame):
         await asyncio.sleep(0)
 
     def open_file(self):
-        filepath = OUTPUT_PATH
-        startfile(f"{filepath}{self.result}")
+        filepath = Path(OUTPUT_PATH)
+        startfile(filepath/self.result)

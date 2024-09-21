@@ -106,10 +106,11 @@ async def write_row(
             product.net,
             product.srp,
             product.prodno,
+            product.brand,
             product.qty,
             product.description,
         ]
-        + product.images,
+        #+ product.images,
     )
     await asyncio.sleep(0)
 

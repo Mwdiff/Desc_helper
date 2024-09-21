@@ -127,10 +127,24 @@ class WebConnection:
             product_url = (
                 "" if "http" in product else SITE + "/search.php?text="
             ) + product.strip("rcRC ").zfill(6)
-            async with self._session.get(
-                product_url, allow_redirects=True
-            ) as product_page:
-                yield product_page
+            
+            async with self._session.get(product_url, allow_redirects=True) as page:
+                content = await page.content.read()
+                souped_page = BeautifulSoup(content, "lxml")
+                products = souped_page.find_all("div", class_="search_list__product")
+            
+                for prod in products:
+                    prod_url = (
+                        ""
+                        if "http"
+                        in prod.find("a", class_="search_top__name").get("href")
+                        else SITE
+                    ) + prod.find("a", class_="search_top__name").get("href")
+
+                    async with self._session.get(
+                        prod_url, allow_redirects=True
+                    ) as product_page:
+                        yield product_page
 
     async def get_news_list(self) -> list[dict[str]]:
         """Generate list of first page news with dates and urls"""
