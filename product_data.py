@@ -26,6 +26,7 @@ class ProductData:
         self._gen_qty()
         self._gen_prodno()
         self._gen_brand()
+        self._gen_safety_file()
 
     def _gen_sku(self):
         self.sku = (
@@ -74,7 +75,13 @@ class ProductData:
         )
         
     def _gen_brand(self) -> None:
-        self.brand = re.sub(r"/firm-pol-\d+-","",self._page.find("a", class_="firm_logo").get("href").split(".")[0])    
+        self.brand = re.sub(r"/firm-pol-\d+-","",self._page.find("a", class_="firm_logo").get("href").split(".")[0])   
+
+    def _gen_safety_file(self) -> None:
+        try:
+            self.safety_file = self._page.find("a", class_="responsible_entity_manual").get("href")
+        except AttributeError:
+            self.safety_file = ""
 
     def initialize_description(self):
         if self._body is None:

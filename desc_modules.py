@@ -109,6 +109,7 @@ async def write_row(
             product.brand,
             product.qty,
             product.description,
+            product.safety_file,
         ]
         #+ product.images,
     )
