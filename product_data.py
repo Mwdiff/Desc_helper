@@ -19,6 +19,10 @@ class ProductData:
         self._body = self._page.find("section", id="projector_longdescription")
         if self._body.find("section", id="projector_longdescription"):
             self._body = self._body.find("section", id="projector_longdescription")
+        # print(self._body, "\n")
+        # if self._body.find("div", class_="_ae_desc"):
+            # self._body = self._body.find("div", class_="_ae_desc").child[0]
+        # print(self._body)
         self._gen_sku()
         self._gen_ean()
         self._gen_net()
@@ -95,37 +99,105 @@ class ProductData:
         self._gen_specification()
 
     def _gen_headers(self) -> None:
+        # try:
+            # self.headers = list(
+                # {
+                    # title.get_text(strip=True): ""
+                    # for title in self._body.find_all(header_filter)
+                    # if not title.find("span", style=re.compile(r"12pt;|10pt;"))
+                    # and title.get_text(strip=True)
+                # }
+            # )
+
+        # except AttributeError:
+            # self.headers = []
+
+        # for header in reversed(self.headers):
+            # if re.match(
+                # r"specyfikacja.{0,5}$|^.{0,10}zestaw.{0,5}$",
+                # header,
+                # flags=re.IGNORECASE,
+            # ):
+                # self.headers.pop()
         try:
-            self.headers = list(
-                {
-                    title.get_text(strip=True): ""
-                    for title in self._body.find_all(header_filter)
-                    if not title.find("span", style=re.compile(r"12pt;|10pt;"))
-                    and title.get_text(strip=True)
-                }
-            )
+                raw_headers = []
+                for title in self._body.find_all(header_filter):
+                    # 1. Sprawdzamy, czy nagłówek nie znajduje się wewnątrz sekcji specyfikacji/tabeli
+                    # find_parent szuka w górę drzewa DOM
+                    is_in_spec = title.find_parent(class_=["table-wrapper", "iai_bottom"])
+                    is_in_table = title.find_parent(["table", "ul"]) # dodatkowe zabezpieczenie
+
+                    if is_in_spec or is_in_table:
+                        continue
+
+                    # 2. Istniejąca logika filtracji rozmiaru czcionki
+                    if title.find("span", style=re.compile(r"12pt;|10pt;")):
+                        continue
+
+                    text = title.get_text(strip=True)
+                    if text:
+                        raw_headers.append(text)
+
+                # Usuwamy duplikaty z zachowaniem kolejności (używając dict.fromkeys)
+                self.headers = list(dict.fromkeys(raw_headers))
 
         except AttributeError:
             self.headers = []
+            return
 
-        for header in reversed(self.headers):
-            if re.match(
+        # 3. Końcowe filtrowanie regexem (czystsza wersja list comprehension zamiast pop())
+        self.headers = [
+            header for header in self.headers
+            if not re.match(
                 r"specyfikacja.{0,5}$|^.{0,10}zestaw.{0,5}$",
                 header,
                 flags=re.IGNORECASE,
-            ):
-                self.headers.pop()
-
+            )
+            ]
     def _gen_description_text(self, element: BeautifulSoup) -> list[str]:
         try:
-            description_items = [
-                section.get_text(strip=True)
-                for section in element
-                if len(section.get_text(strip=True)) > 50
-                and section.name not in ["style", "ul", "table"]
-                and "iai_bottom" not in section.get_attribute_list("class")
-                and "table-wrapper" not in section.get_attribute_list("class")
-            ]
+            # description_items = [
+                # section.get_text(strip=True)
+                # for section in element
+                # if len(section.get_text(strip=True)) > 50
+                # and section.name not in ["style", "ul", "table"]
+                # and "iai_bottom" not in section.get_attribute_list("class")
+                # and "table-wrapper" not in section.get_attribute_list("class")
+            # ]
+            
+            # 1. Usuwamy śmieci (style, skrypty, tabele)
+            for unwanted in element.find_all(["style", "script"]): #, "table", "ul"
+                unwanted.decompose()
+
+            description_items = []
+            
+            # 2. Szukamy wszystkich potencjalnych bloków tekstu
+            # Dodajemy 'li' jeśli jednak chciałbyś listę, ale w Twoim kodzie była wykluczona
+            tags_to_find = ['p', 'h3', 'h4', 'div', 'span']
+            
+            for block in element.find_all(tags_to_find):
+                # Sprawdzamy klasy wykluczone
+                block_classes = block.get_attribute_list("class")
+                if any(cls in block_classes for cls in ["iai_bottom", "table-wrapper"]):
+                    continue
+
+                # KLUCZOWY WARUNEK:
+                # Sprawdzamy, czy wewnątrz tego bloku nie ma innych tagów tekstowych.
+                # Jeśli block to 'div', a w środku jest 'p', to ignorujemy ten 'div' 
+                # i czekamy, aż pętla dojdzie do tego 'p'.
+                has_block_child = block.find(['p', 'h3', 'h4', 'div']) is not None
+                
+                # Pobieramy tekst
+                text = block.get_text(strip=True)
+
+                # Dodajemy tylko jeśli:
+                # - nie jest kontenerem dla innych bloków (has_block_child is False)
+                # - ma odpowiednią długość
+                # - nie jest duplikatem
+                if not has_block_child and len(text) > 50:
+                    if text not in description_items:
+                        description_items.append(text)           
+
         except AttributeError:
             self.description_text = []
             return
@@ -195,7 +267,7 @@ class ProductData:
                 spec_str += str(table) + "\n"
             regex = {
                 "": re.compile(
-                    r"(\s?style=\"[^\>]+\")|(</?span[^>]*>)|(</?td[^>]*>)|<br>|<p>|<tr><th>\s*</th>\s*(<td></td>)?</tr>"
+                    r"(\s?style=\"[^\>]+\")|(</?span[^>]*>)|(</?td[^>]*>)|<br>|<p>|<tr><th>\s*</th>\s*(<td></td>)?</tr>|<p>&nbsp;</p>"
                 ),
                 "ul": re.compile("tbody"),
                 r"<\g<1>li>": re.compile(r"<(/?)tr[^>]*>"),

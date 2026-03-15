@@ -1,6 +1,8 @@
 from asyncio import create_task, run
 from configparser import ConfigParser
 from pathlib import Path
+from os import path,environ
+import sys
 
 from playwright.async_api import async_playwright
 
@@ -17,7 +19,8 @@ HEADERS = {
 
 class BrowserRequest:
     """Creates async context manager for Playwright chromium browser. Use obj.goto(url, wait_until="networkidle")"""
-
+    #browser_path = Path(r".\pw-browsers\chromium-1105\chrome-win\chrome.exe").absolute()
+    browser_path = Path(r"C:\Users\USER\Documents\koding\Desc_helper\pw-browsers\chromium-1105\chrome-win\chrome.exe")
     browser_context_path = "logged_in.json"
 
     def __init__(self):
@@ -26,7 +29,9 @@ class BrowserRequest:
     async def __aenter__(self):
         self.playwright = await self.acm.__aenter__()
 
-        self.browser = await self.playwright.chromium.launch()
+        self.browser = await self.playwright.chromium.launch(
+            executable_path=browser_path,
+            headless=True)
 
         if not Path(self.browser_context_path).exists():
             await self._context_login(self.browser)
