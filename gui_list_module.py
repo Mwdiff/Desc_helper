@@ -29,7 +29,8 @@ class ListModuleFrame(ctk.CTkFrame):
         self.task = None
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure((0, 1, 2, 3, 4, 5), minsize=40, weight=1)
+        self.grid_rowconfigure((0, 1, 2, 5), minsize=60, weight=1)
+        self.grid_rowconfigure((3, 4), minsize=40, weight=1)
 
         self.label_font = ctk.CTkFont(size=15, weight="bold")
         self.label_font_light = ctk.CTkFont(size=13)
@@ -46,7 +47,7 @@ class ListModuleFrame(ctk.CTkFrame):
             row=0, column=0, padx=20, pady=(20, 5), columnspan=2, sticky="nsw"
         )
 
-        self.list_input = ctk.CTkTextbox(self, height=95, border_width=2)
+        self.list_input = ctk.CTkTextbox(self, height=250, border_width=2)
         self.list_input.grid(
             row=1, column=0, padx=20, pady=(0, 10), columnspan=2, sticky="nsew"
         )
@@ -64,7 +65,14 @@ class ListModuleFrame(ctk.CTkFrame):
             text=f"Domyślna nazwa: '{check_duplicate_name('lista')}'",
         )
         self.filename_label.grid(
-            row=2, column=0, padx=(150, 20), pady=(0, 5), sticky="nse"
+            row=2, column=0, padx=(150, 70), pady=(10, 5), sticky="nse"
+        )
+
+        self.new_template_toggle = ctk.CTkCheckBox(self, text="Nowy szablon", width=50)
+        if config.get("General", "new_template", fallback=False):
+            self.new_template_toggle.select()
+        self.new_template_toggle.grid(
+            row=2, column=1, padx=(0, 20), pady=(10, 10), sticky="nse"
         )
 
         self.filename_input = ctk.CTkEntry(
@@ -105,14 +113,26 @@ class ListModuleFrame(ctk.CTkFrame):
 
         self.open_button = ctk.CTkButton(
             self,
-            text="Otwórz",
-            width=40,
+            text="Otwórz ",
+            width=42,
             font=self.label_font,
             corner_radius=0,
             command=self.open_file,
             state="disabled",
         )
         self.open_button.grid(
+            row=5, column=1, padx=(0, 50), pady=(10, 20), sticky="nse"
+        )
+
+        self.open_folder_button = ctk.CTkButton(
+            self,
+            text="📂",
+            width=25,
+            font=self.label_font,
+            corner_radius=0,
+            command=self.open_folder,
+        )
+        self.open_folder_button.grid(
             row=5, column=1, padx=(0, 20), pady=(10, 20), sticky="nse"
         )
 
@@ -121,10 +141,17 @@ class ListModuleFrame(ctk.CTkFrame):
         self.progress_bar.set(0)
         product_list = [
             prod.strip("rcRC ").zfill(6)
-            for prod in self.list_input.get("0.0", "end").replace("\t", ";").replace(" ", ";").replace("\n", ";").replace(",", ";").replace("|", ";").split(";")
+            for prod in self.list_input.get("0.0", "end")
+            .replace("\t", ";")
+            .replace(" ", ";")
+            .replace("\n", ";")
+            .replace(",", ";")
+            .replace("|", ";")
+            .split(";")
             if prod
         ]
         filename = self.filename_input.get()
+        config.set("General", "new_template", str(self.new_template_toggle.get()))
 
         async def generate_file():
             self.result = await generate_data(
@@ -149,7 +176,6 @@ class ListModuleFrame(ctk.CTkFrame):
             self.progress_bar.set(0)
             self.submit_button.configure(text="Generuj", command=self.run)
             remove(OUTPUT_PATH + "temp.xlsx")
-            
 
     async def update_progressbar(self, current, total):
         self.progress_bar.set(current / total)
@@ -158,4 +184,8 @@ class ListModuleFrame(ctk.CTkFrame):
 
     def open_file(self):
         filepath = Path(OUTPUT_PATH)
-        startfile(filepath/self.result)
+        startfile(filepath / self.result)
+
+    def open_folder(self):
+        filepath = Path(OUTPUT_PATH)
+        startfile(filepath)

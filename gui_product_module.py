@@ -2,16 +2,16 @@ import asyncio
 from configparser import ConfigParser
 from datetime import datetime
 from os import remove, startfile
-from time import sleep
 from pathlib import Path
+from time import sleep
 
 import customtkinter as ctk
 from windows_toasts import (
     InteractableWindowsToaster,
+    Toast,
     ToastActivatedEventArgs,
     ToastButton,
     ToastDisplayImage,
-    Toast,
 )
 
 from desc_modules import generate_data
@@ -41,8 +41,8 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.news_list = []
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure((3, 5), minsize=40, weight=1)
-        self.grid_rowconfigure((1, 2, 4, 6), minsize=40, weight=1)
+        self.grid_rowconfigure((3, 5, 6), minsize=40, weight=1)
+        self.grid_rowconfigure((1, 2, 4), minsize=60, weight=1)
         self.grid_rowconfigure((0, 7), minsize=60, weight=1)
 
         self.label_font = ctk.CTkFont(size=15, weight="bold")
@@ -110,6 +110,13 @@ class ProductModuleFrame(ctk.CTkFrame):
         )
         self.input_label_2.grid(row=4, column=0, padx=20, pady=(10, 5), sticky="nsw")
 
+        self.new_template_toggle = ctk.CTkCheckBox(self, text="Nowy szablon", width=50)
+        if config.get("General", "new_template", fallback=False):
+            self.new_template_toggle.select()
+        self.new_template_toggle.grid(
+            row=4, column=1, padx=(0, 20), pady=(10, 10), sticky="nse"
+        )
+
         self.filename_input = ctk.CTkEntry(
             self, placeholder_text="Pozostaw puste dla nazwy domyślnej"
         )
@@ -148,14 +155,26 @@ class ProductModuleFrame(ctk.CTkFrame):
 
         self.open_button = ctk.CTkButton(
             self,
-            text="Otwórz",
-            width=40,
+            text="Otwórz ",
+            width=42,
             font=self.label_font,
             corner_radius=0,
             command=self.open_file,
             state="disabled",
         )
         self.open_button.grid(
+            row=7, column=1, padx=(0, 50), pady=(10, 20), sticky="nse"
+        )
+
+        self.open_folder_button = ctk.CTkButton(
+            self,
+            text="📂",
+            width=25,
+            font=self.label_font,
+            corner_radius=0,
+            command=self.open_folder,
+        )
+        self.open_folder_button.grid(
             row=7, column=1, padx=(0, 20), pady=(10, 20), sticky="nse"
         )
 
@@ -164,6 +183,7 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.progress_bar.set(0)
         url = self.url_input.get()
         filename = self.filename_input.get()
+        config.set("General", "new_template", str(self.new_template_toggle.get()))
 
         async def generate_file():
             self.result = await generate_data(
@@ -196,7 +216,11 @@ class ProductModuleFrame(ctk.CTkFrame):
 
     def open_file(self):
         filepath = Path(OUTPUT_PATH)
-        startfile(filepath/self.result)
+        startfile(filepath / self.result)
+
+    def open_folder(self):
+        filepath = Path(OUTPUT_PATH)
+        startfile(filepath)
 
     def list_select(self, selection: tuple[int]):
         self.url_input.delete(0, "end")
@@ -204,8 +228,8 @@ class ProductModuleFrame(ctk.CTkFrame):
 
     def news_initialize(self):
         self.auto_refresh_toggle = True
-##        print(asyncio.current_task(loop=self.loop))
-##        if asyncio.current_task(loop=self.loop) is None:
+        ##        print(asyncio.current_task(loop=self.loop))
+        ##        if asyncio.current_task(loop=self.loop) is None:
         self.refresh_task = self.loop.create_task(self.session.get_news_list())
         self.after(1000, self.news_refresh)
 
@@ -241,8 +265,8 @@ class ProductModuleFrame(ctk.CTkFrame):
         self.refresh_button.configure(state="normal")
 
     def auto_refresh(self):
-##        print(asyncio.current_task(loop=self.loop))
-##        if asyncio.current_task(loop=self.loop) is None:
+        ##        print(asyncio.current_task(loop=self.loop))
+        ##        if asyncio.current_task(loop=self.loop) is None:
         self.news_refresh()
         self.after(300000, self.auto_refresh)
 
@@ -259,10 +283,10 @@ class ProductModuleFrame(ctk.CTkFrame):
                 self.focus_force()
 
         newToast.text_fields = title
-        #print(url)
+        # print(url)
         try:
             img = self.loop.run_until_complete(self.session.get_article_image(url))
-            #print(img)
+            # print(img)
         except Exception:
             img = None
 
@@ -274,7 +298,7 @@ class ProductModuleFrame(ctk.CTkFrame):
                     large=True,
                 )
             )
-            
+
         newToast.AddAction(ToastButton("Open", "open"))
         newToast.AddAction(ToastButton("Ok", "ok"))
         newToast.on_activated = activated_callback

@@ -1,8 +1,8 @@
+import sys
 from asyncio import create_task, run
 from configparser import ConfigParser
+from os import environ, path
 from pathlib import Path
-from os import path,environ
-import sys
 
 from playwright.async_api import async_playwright
 
@@ -17,12 +17,14 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
 }
 
+
 class BrowserRequest:
     """Creates async context manager for Playwright chromium browser. Use obj.goto(url, wait_until="networkidle")"""
-    if getattr(sys, 'frozen', False):
+
+    if getattr(sys, "frozen", False):
         bundle_dir = sys._MEIPASS
         environ["PLAYWRIGHT_BROWSERS_PATH"] = path.join(bundle_dir, "pw-browsers")
-    
+
     browser_context_path = "logged_in.json"
 
     def __init__(self):
@@ -59,13 +61,11 @@ class BrowserRequest:
 
         page = await context.new_page()
         await page.goto(SITE + "/signin.php")
-        await page.get_by_label("Login", exact=True).fill(
-            config["Login_data"]["login"]
-        )
+        await page.get_by_label("Login", exact=True).fill(config["Login_data"]["login"])
         await page.get_by_label("Hasło", exact=True).fill(
             config["Login_data"]["password"]
         )
-        await page.get_by_role("button", name="Przejdź dalej").click()
+        await page.get_by_role("button", name="Przejdź dalej").click(force=True)
 
         await context.storage_state(path=cls.browser_context_path)
 
