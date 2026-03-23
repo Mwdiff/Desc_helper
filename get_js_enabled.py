@@ -19,8 +19,10 @@ HEADERS = {
 
 class BrowserRequest:
     """Creates async context manager for Playwright chromium browser. Use obj.goto(url, wait_until="networkidle")"""
-    #browser_path = Path(r".\pw-browsers\chromium-1105\chrome-win\chrome.exe").absolute()
-    browser_path = Path(r"C:\Users\USER\Documents\koding\Desc_helper\pw-browsers\chromium-1105\chrome-win\chrome.exe")
+    if getattr(sys, 'frozen', False):
+        bundle_dir = sys._MEIPASS
+        environ["PLAYWRIGHT_BROWSERS_PATH"] = path.join(bundle_dir, "pw-browsers")
+    
     browser_context_path = "logged_in.json"
 
     def __init__(self):
@@ -29,9 +31,7 @@ class BrowserRequest:
     async def __aenter__(self):
         self.playwright = await self.acm.__aenter__()
 
-        self.browser = await self.playwright.chromium.launch(
-            executable_path=browser_path,
-            headless=True)
+        self.browser = await self.playwright.chromium.launch()
 
         if not Path(self.browser_context_path).exists():
             await self._context_login(self.browser)
@@ -59,10 +59,10 @@ class BrowserRequest:
 
         page = await context.new_page()
         await page.goto(SITE + "/signin.php")
-        await page.get_by_label("Login / Nr karty stałego klienta / E-mail").fill(
+        await page.get_by_label("Login", exact=True).fill(
             config["Login_data"]["login"]
         )
-        await page.get_by_label("Hasło / Pin karty stałego klienta").fill(
+        await page.get_by_label("Hasło", exact=True).fill(
             config["Login_data"]["password"]
         )
         await page.get_by_role("button", name="Przejdź dalej").click()
