@@ -12,9 +12,9 @@ config = ConfigParser()
 config.read("config.ini")
 SITE = config["General"]["site"]
 HEADERS = {
-    "Accept-Language": "pl,en-US;q=0.7,en;q=0.3",
+    "Accept-Language": "pl,en-US;q=0.9,en;q=0.8",
     "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:148.0) Gecko/20100101 Firefox/148.0",
 }
 
 
@@ -61,6 +61,7 @@ class BrowserRequest:
 
         page = await context.new_page()
         await page.goto(SITE + "/signin.php")
+        
         await page.get_by_label("Login", exact=True).fill(config["Login_data"]["login"])
         await page.get_by_label("Hasło", exact=True).fill(
             config["Login_data"]["password"]
