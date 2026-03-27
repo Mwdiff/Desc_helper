@@ -6,6 +6,7 @@ import customtkinter as ctk
 from get_html_async import WebConnection
 from get_js_enabled import BrowserRequest
 from gui_list_module import ListModuleFrame
+from gui_manual_module import ManualModuleFrame
 from gui_product_module import ProductModuleFrame
 
 config = ConfigParser()
@@ -53,6 +54,7 @@ class MyTabView(ctk.CTkTabview):
         # create tabs
         self.add("  Opisy z url  ")
         self.add("  Opisy z listy  ")
+        self.add("  Opis ręczny  ")
 
         # add widgets on tabs
         self.frame1 = ProductModuleFrame(
@@ -72,3 +74,11 @@ class MyTabView(ctk.CTkTabview):
             height=600,
         )
         self.frame2.pack(padx=10, pady=10, expand=0, fill="both")
+
+        self.frame3 = ManualModuleFrame(
+            loop=master.loop,
+            master=self.tab("  Opis ręczny  "),
+            width=800,
+            height=600,
+        )
+        self.frame3.pack(padx=10, pady=10, expand=0, fill="both")
