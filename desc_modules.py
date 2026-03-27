@@ -29,6 +29,7 @@ async def generate_data(
     filename: str = "",
     progress_function=None,
     mode: str = "product",
+    new_template: bool = False,
 ) -> str:
     t_start = perf_counter()
 
@@ -50,7 +51,7 @@ async def generate_data(
                 row += 1
                 continue
 
-            await write_row(sheet, product_page, row, filename)
+            await write_row(sheet, product_page, row, filename, new_template)
 
             if asyncio.current_task().cancelled():
                 print("cancelled")
@@ -79,7 +80,7 @@ async def generate_data(
 
 
 async def write_row(
-    sheet: worksheet, product_page: ClientResponse, row: int, filename: str
+    sheet: worksheet, product_page: ClientResponse, row: int, filename: str, new_template: bool
 ) -> None:
     page_content = await product_page.content.read()
     try:
@@ -94,7 +95,10 @@ async def write_row(
     except AttributeError:
         pass
     else:
-        product.assemble_description()
+        if new_template: #config.get("General", "new_template", fallback=False):
+            product.assemble_description_new()
+        else:
+            product.assemble_description()
 
     await asyncio.sleep(0)
 
