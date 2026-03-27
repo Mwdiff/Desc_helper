@@ -75,6 +75,13 @@ class ManualModuleFrame(ctk.CTkFrame):
         )
         self.brand_label.grid(row=2, column=0, padx=20, pady=(10, 5), sticky="nsw")
 
+        self.new_template_toggle = ctk.CTkCheckBox(self, text="Nowy szablon", width=50)
+        if config.get("General", "new_template", fallback=False):
+            self.new_template_toggle.select()
+        self.new_template_toggle.grid(
+            row=2, column=1, padx=(0, 20), pady=(10, 10), sticky="nse"
+        )
+
         self.brand_input = ctk.CTkEntry(self, placeholder_text="Nazwa marki")
         self.brand_input.grid(
             row=3, column=0, padx=20, pady=(0, 10), sticky="nswe"
@@ -224,7 +231,10 @@ class ManualModuleFrame(ctk.CTkFrame):
         except AttributeError:
             pass
         else:
-            product.assemble_description()
+            if self.new_template_toggle.get():
+                product.assemble_description_new()
+            else:
+                product.assemble_description()
 
         return product
 
