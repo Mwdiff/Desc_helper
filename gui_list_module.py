@@ -151,7 +151,7 @@ class ListModuleFrame(ctk.CTkFrame):
             if prod
         ]
         filename = self.filename_input.get()
-        config.set("General", "new_template", str(self.new_template_toggle.get()))
+        #config.set("General", "new_template", str(self.new_template_toggle.get()))
 
         async def generate_file():
             self.result = await generate_data(
@@ -160,6 +160,7 @@ class ListModuleFrame(ctk.CTkFrame):
                 filename=filename,
                 progress_function=self.update_progressbar,
                 mode="list",
+                new_template=self.new_template_toggle.get(),
             )
             self.submit_button.configure(text="Generuj", command=self.run)
             self.progress_bar.set(0)

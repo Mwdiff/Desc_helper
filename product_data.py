@@ -330,8 +330,60 @@ class ProductData:
                             [iai:allegro_description_section_text_and_photo-end]""".format(self.brand) + \
                             description + \
                             """[iai:allegro_description_section_photo_list-begin][iai:photo_url(/data/include/cms/logo_retail/{}.png)][iai:allegro_description_section_photo_list-end][iai:allegro_description_section_text-begin]""".format(self.brand)
+                            
+    def assemble_description_new(self) -> None:
+        style_template_text = Template(
+            """[iai:allegro_description_section_text-begin]
+                                <h2>⭐$title⭐</h2><p>$section</p>
+            [iai:allegro_description_section_text-end]\n"""
+        )
 
-##re.sub(r"\[iai\:photo_url\(assets[^)]*\)\]","[iai:product_photos_large_1]",description) + 
+        style_template_img = Template(
+            """[iai:allegro_description_section_photo_list-begin]
+                            [iai:photo_url($img)]
+               [iai:allegro_description_section_photo_list-end]\n"""
+        )
+
+        brand_bumper = """[iai:allegro_description_section_photo_list-begin][iai:photo_url(/data/include/cms/logo_retail/bumpers/{}-bumper.png)][iai:allegro_description_section_photo_list-end]""".format(self.brand)
+        
+        # Wstępny tekst i zdjęcie 
+        description = """[iai:allegro_description_section_text-begin]
+                        {}
+                        [iai:allegro_description_section_text-end]""".format(self.description_text[0]) + style_template_img.substitute(img=self.images[0]) + brand_bumper
+        
+        # Specyfikacja i Zawartość zestawu
+        description +="""[iai:allegro_description_section_text_and_photo-begin]
+                            <p><b>Producent:</b> [iai:product_producer_name]</p>
+                            <p><b>Kod Produktu:</b> [iai:product_code_producer]</p>
+                                {}                            
+                            <p><b>➡️Materiał wideo prezentujący produkt: </b></p>
+                            [iai:product_photos_large_1]
+                        [iai:allegro_description_section_text_and_photo-end]\n""".format(
+            "\n".join([self.specification.replace("<h2>","<h2>⚙️"), self.contents.replace("<h2>","<h2>⭐")])
+        ) + brand_bumper
+        
+        # Sekcja z zaletami
+        description += """[iai:allegro_description_section_text-begin]
+                                <h2>✅Zalety:</h2><p>✔️</p>
+                        [iai:allegro_description_section_text-end]\n""" + brand_bumper
+
+        # kolejne sekcje nagłówek+opis / zdjęcie naprzemiennie
+        for t, i, d in zip_longest(
+            self.headers[1:], self.images[1:], self.description_text[1:], fillvalue=""
+        ):
+            description = (
+                description
+                + style_template_text.substitute(img=i, title=t, section=d)
+                + style_template_img.substitute(img=i, title=t, section=d)
+            )
+        
+        # Owinięcie w tytuł i logo
+        self.description = """[iai:allegro_description_section_text-end][iai:allegro_description_section_text_and_photo-begin]
+                            <h1>[iai:product_name_auction]</h1>[iai:photo_url(/data/include/cms/logo_retail/{}.png)] 
+                            [iai:allegro_description_section_text_and_photo-end]""".format(self.brand) + \
+                            description + \
+                            """[iai:allegro_description_section_photo_list-begin][iai:photo_url(/data/include/cms/logo_retail/{}.png)][iai:allegro_description_section_photo_list-end][iai:allegro_description_section_text-begin]""".format(self.brand)
+
 
 def header_filter(title):
     if title.name in [
